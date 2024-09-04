@@ -2,7 +2,7 @@
 
 ## Overview
 
-**HeaAi** (Help AI) is an advanced AI-powered project management assistant designed to streamline workflows and assist users in organizing their projects. Written in **Rust**, HelAi combines the capabilities of a **CRM system** with the flexibility and power of an **AI personal assistant**, aiming to go beyond CRM functionalities to eventually offer a more global and comprehensive project management solution.
+**Helai** (Help AI) is an advanced AI-powered project management assistant designed to streamline workflows and assist users in organizing their projects. Written in **Rust**, HelAi combines the capabilities of a **CRM system** with the flexibility and power of an **AI personal assistant**, aiming to go beyond CRM functionalities to eventually offer a more global and comprehensive project management solution.
 
 The core idea behind HelAi is to intelligently receive, collect, and organize messages from various sources, turning them into actionable insights. HelAi will assist users by answering project-related questions, providing helpful suggestions, and organizing information in a way that enhances productivity.
 
