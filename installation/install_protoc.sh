@@ -36,7 +36,7 @@ install_windows() {
 
     # PowerShell command to download and extract protoc
     powershell -Command "
-    \$url = 'https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protoc-21.12-win64.zip';
+    \$url = 'https://github.com/protocolbuffers/protobuf/releases/download/v28.0/protoc-28.0-win64.zip';
     \$output = 'C:\protoc.zip';
     \$extractPath = 'C:\protoc';
 
