@@ -33,6 +33,24 @@ Follow the steps below to set up HelAi:
 
 1. **Install Rust**: Install Rust by following the instructions [here](https://www.rust-lang.org/tools/install).
 
+2. **Clone the HelAi Repository**: If you don’t have Git installed, follow [this guide](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) to install it. Once Git is installed, download the HelAi repository by running:
+
+```bash
+git clone https://github.com/helai-app/hellai-app.git
+```
+
+3. **Navigate to the Project Directory**: After cloning the repository, navigate to the project directory:
+
+```bash
+cd hellai-app
+```
+
+4. **Run the Installation Script**: Set up the environment and install necessary dependencies by running the `installation.sh` script:
+
+```bash
+bash installation.sh
+```
+
 
 ## Usage 💼
 
