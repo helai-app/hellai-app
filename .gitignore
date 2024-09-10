@@ -1,0 +1,9 @@
+# https://docs.docker.com/compose/environment-variables/#using-the---env-file--option
+.env.custom
+
+# Editor / IDE
+.vscode/tags
+.idea
+
+# OSX minutia
+.DS_Store
