@@ -1,0 +1,12 @@
+[package]
+name = "core_service"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = [".", "api" ]
+
+[dependencies]
+api = { path = "api" }
+
+tokio = { version = "1.40", features = ["full"] }

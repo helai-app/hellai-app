@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package helai_api_core_service;
+
+// Enum representing the different roles a user can have
+enum UserRole {
+  ADMINISTRATOR = 0;
+  USER = 1;
+  TESTER = 2;
+  GUEST = 3;
+}
+
+// Service handling user-related operations
+service UserService {
+  // Authenticate using login and password, returns user details with tokens
+  rpc AuthenticateWithPassword(AuthenticateWithPasswordRequest)
+      returns (UserResponse) {}
+
+  // Register a new user with login and password, returns user details
+  rpc RegisterUser(RegisterUserRequest) returns (UserResponse) {}
+
+  // Refresh the session token using a refresh token, returns a new session
+  // token
+  rpc RefreshSessionToken(RefreshSessionTokenRequest) returns (TokenResponse) {}
+}
+
+// Request message for authentication with password
+message AuthenticateWithPasswordRequest {
+  string login = 1;
+  string password = 2;
+}
+
+// Request message for user registration
+message RegisterUserRequest {
+  string login = 1;
+  string password = 2;
+}
+
+// Request message to refresh the session token
+message RefreshSessionTokenRequest { string refresh_token = 1; }
+
+// Response message for user-related RPCs
+message UserResponse {
+  int32 user_id = 1;        // Unique identifier for the user
+  UserRole user_role = 2;   // Role of the user
+  string email = 3;         // Email of the user
+  string session_token = 4; // Session token for the user
+  string refresh_token = 5; // Refresh token for the user
+}
+
+// Response message containing only a new session token
+message TokenResponse { string session_token = 1; }
