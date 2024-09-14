@@ -3,7 +3,10 @@ use helai_api_core_service::{
     AuthenticateWithPasswordRequest, RefreshSessionTokenRequest, RegisterUserRequest,
     TokenResponse, UserResponse, UserRole,
 };
+use middleware::auth_token::{RefreshClaims, SessionClaims};
 use tonic::{transport::Server, Request, Response, Status};
+
+mod middleware;
 
 /// For init proto generation
 pub mod helai_api_core_service {
@@ -21,12 +24,25 @@ impl UserService for MyGreeter {
     ) -> Result<Response<UserResponse>, Status> {
         println!("Got a request from {:?}", request.remote_addr());
 
+        let user_id: i64 = 1;
+        let session_id: i64 = 1;
+
+        let session_claims: SessionClaims = SessionClaims::new(user_id);
+        let session_token = session_claims
+            .into_token()
+            .expect("Failed to create session JWT token");
+
+        let refresh_claims: RefreshClaims = RefreshClaims::new(session_id);
+        let refresh_token = refresh_claims
+            .into_token()
+            .expect("Failed to create refresh JWT token");
+
         let reply = UserResponse {
-            user_id: 1,
+            user_id: user_id as i32,
             user_role: UserRole::User.into(),
             email: "test@test.com".into(),
-            session_token: "".into(),
-            refresh_token: "".into(),
+            session_token: session_token,
+            refresh_token: refresh_token,
         };
 
         Ok(Response::new(reply))

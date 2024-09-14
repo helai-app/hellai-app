@@ -8,5 +8,6 @@ members = [".", "api" ]
 
 [dependencies]
 api = { path = "api" }
+dotenvy = "0.15"
 
 tokio = { version = "1.40", features = ["full"] }
