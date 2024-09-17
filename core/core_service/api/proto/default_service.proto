@@ -1,0 +1,5 @@
+syntax = "proto3";
+
+package helai_api_core_service;
+
+message ValidationError { string description = 1; }

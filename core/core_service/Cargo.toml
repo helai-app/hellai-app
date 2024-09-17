@@ -4,10 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = [".", "api" ]
+members = [".", "api" , "core_error", "core_error"]
 
 [dependencies]
 api = { path = "api" }
 dotenvy = "0.15"
+tokio = { workspace = true }
 
+[workspace.dependencies]
 tokio = { version = "1.40", features = ["full"] }
+jsonwebtoken = "9.3"
+tonic = "0.12"

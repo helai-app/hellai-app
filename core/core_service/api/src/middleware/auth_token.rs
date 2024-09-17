@@ -1,8 +1,9 @@
+use core_error::core_errors::CoreErrors;
 use lazy_static::lazy_static;
 use std::env;
 use std::time::SystemTime;
 
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
 const SESSION_TOKEN_EXP: usize = 86400000; // 24 hours in ms
@@ -32,18 +33,22 @@ impl SessionClaims {
         }
     }
 
-    pub fn into_token(&self) -> Result<String, jsonwebtoken::errors::Error> {
-        encode(
+    pub fn into_token(&self) -> Result<String, CoreErrors> {
+        let token = encode(
             &Header::default(),
             self,
             &EncodingKey::from_secret(JWT_SECRET.as_ref()),
-        )
+        )?;
+
+        Ok(token)
     }
 }
 
 /// Our claims struct, it needs to derive `Serialize` and/or `Deserialize`
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RefreshClaims {
+    // The sub depicts the so-called subject, so “who,” in this case (user ID)
+    pub sub: i64,
     // Session id
     pub sid: i64,
     // Date when token expires
@@ -51,21 +56,34 @@ pub struct RefreshClaims {
 }
 
 impl RefreshClaims {
-    pub fn new(sid: i64) -> RefreshClaims {
+    pub fn new(sid: i64, sub: i64) -> RefreshClaims {
         let now: usize = get_now_time_in_ms();
 
         RefreshClaims {
             sid,
             exp: now + REFRESH_TOKEN_EXP,
+            sub,
         }
     }
 
-    pub fn into_token(&self) -> Result<String, jsonwebtoken::errors::Error> {
-        encode(
+    pub fn from_token(token: String) -> Result<RefreshClaims, CoreErrors> {
+        let token = decode::<RefreshClaims>(
+            &token,
+            &DecodingKey::from_secret(JWT_SECRET.as_ref()),
+            &Validation::default(),
+        )?;
+
+        Ok(token.claims)
+    }
+
+    pub fn into_token(&self) -> Result<String, CoreErrors> {
+        let token = encode(
             &Header::default(),
             self,
             &EncodingKey::from_secret(JWT_SECRET.as_ref()),
-        )
+        )?;
+
+        return Ok(token);
     }
 }
 

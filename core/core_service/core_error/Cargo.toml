@@ -1,0 +1,9 @@
+[package]
+name = "core_error"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "1.0"
+tonic = { workspace = true }
+jsonwebtoken = {workspace = true}

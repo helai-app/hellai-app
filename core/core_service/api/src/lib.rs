@@ -32,7 +32,7 @@ impl UserService for MyGreeter {
             .into_token()
             .expect("Failed to create session JWT token");
 
-        let refresh_claims: RefreshClaims = RefreshClaims::new(session_id);
+        let refresh_claims: RefreshClaims = RefreshClaims::new(session_id, user_id);
         let refresh_token = refresh_claims
             .into_token()
             .expect("Failed to create refresh JWT token");
@@ -71,8 +71,15 @@ impl UserService for MyGreeter {
     ) -> Result<Response<TokenResponse>, Status> {
         println!("Got a request from {:?}", request.remote_addr());
 
+        let refresh_token: String = request.into_inner().refresh_token;
+
+        let request_claims = RefreshClaims::from_token(refresh_token)?;
+
+        let session_claims: SessionClaims = SessionClaims::new(request_claims.sub);
+        let session_token = session_claims.into_token()?;
+
         let reply = TokenResponse {
-            session_token: request.into_inner().refresh_token,
+            session_token: session_token,
         };
 
         Ok(Response::new(reply))
