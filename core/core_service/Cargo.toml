@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = [".", "api" , "core_error", "core_error"]
+members = [".", "api" , "core_error", "core_error", "service"]
 
 [dependencies]
 api = { path = "api" }
@@ -13,5 +13,6 @@ tokio = { workspace = true }
 
 [workspace.dependencies]
 tokio = { version = "1.40", features = ["full"] }
+sea-orm = { version = "1.0.0-rc.5", features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid" ] }
 jsonwebtoken = "9.3"
 tonic = "0.12"

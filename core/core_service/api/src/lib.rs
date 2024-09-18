@@ -1,3 +1,5 @@
+use std::env;
+
 use helai_api_core_service::{
     user_service_server::{UserService, UserServiceServer},
     AuthenticateWithPasswordRequest, RefreshSessionTokenRequest, RegisterUserRequest,
@@ -5,6 +7,8 @@ use helai_api_core_service::{
 };
 use middleware::auth_token::{RefreshClaims, SessionClaims};
 use tonic::{transport::Server, Request, Response, Status};
+
+use sea_orm::{Database, DatabaseConnection};
 
 mod middleware;
 
@@ -14,15 +18,19 @@ pub mod helai_api_core_service {
 }
 
 #[derive(Default)]
-pub struct MyGreeter {}
+pub struct MyServer {
+    connection: DatabaseConnection,
+}
 
 #[tonic::async_trait]
-impl UserService for MyGreeter {
+impl UserService for MyServer {
     async fn authenticate_with_password(
         &self,
         request: Request<AuthenticateWithPasswordRequest>,
     ) -> Result<Response<UserResponse>, Status> {
         println!("Got a request from {:?}", request.remote_addr());
+
+        let conn = &self.connection;
 
         let user_id: i64 = 1;
         let session_id: i64 = 1;
@@ -88,12 +96,18 @@ impl UserService for MyGreeter {
 
 pub async fn start() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "0.0.0.0:50052".parse().unwrap();
-    let greeter = MyGreeter::default();
+
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    // establish database connection
+    let connection = Database::connect(&database_url).await?;
+
+    let my_server = MyServer { connection };
 
     println!("GreeterServer listening on {}", addr);
 
     Server::builder()
-        .add_service(UserServiceServer::new(greeter))
+        .add_service(UserServiceServer::new(my_server))
         .serve(addr)
         .await?;
 
