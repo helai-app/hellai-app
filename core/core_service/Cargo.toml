@@ -13,6 +13,12 @@ tokio = { workspace = true }
 
 [workspace.dependencies]
 tokio = { version = "1.40", features = ["full"] }
-sea-orm = { version = "1.0.0-rc.5", features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros", "with-chrono", "with-uuid" ] }
+sea-orm = { version = "1.0.0-rc.5", features = [ 
+    "sqlx-postgres", # `ASYNC_RUNTIME` feature
+    "runtime-tokio-rustls", # `DATABASE_DRIVER` feature
+    "macros", 
+    "with-chrono", 
+    "with-uuid", 
+    ] }
 jsonwebtoken = "9.3"
 tonic = "0.12"

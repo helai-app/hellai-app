@@ -6,6 +6,7 @@ use helai_api_core_service::{
     TokenResponse, UserResponse, UserRole,
 };
 use middleware::auth_token::{RefreshClaims, SessionClaims};
+use migration::{Migrator, MigratorTrait};
 use tonic::{transport::Server, Request, Response, Status};
 
 use sea_orm::{Database, DatabaseConnection};
@@ -29,8 +30,6 @@ impl UserService for MyServer {
         request: Request<AuthenticateWithPasswordRequest>,
     ) -> Result<Response<UserResponse>, Status> {
         println!("Got a request from {:?}", request.remote_addr());
-
-        let conn = &self.connection;
 
         let user_id: i64 = 1;
         let session_id: i64 = 1;
@@ -101,6 +100,8 @@ pub async fn start() -> Result<(), Box<dyn std::error::Error>> {
 
     // establish database connection
     let connection = Database::connect(&database_url).await?;
+
+    Migrator::up(&connection, None).await?;
 
     let my_server = MyServer { connection };
 
