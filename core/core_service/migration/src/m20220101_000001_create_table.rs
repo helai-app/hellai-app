@@ -68,7 +68,6 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Passwords::UserId).integer().not_null())
                     .col(ColumnDef::new(Passwords::PasswordHash).string().not_null())
-                    .col(ColumnDef::new(Passwords::Salt).string().not_null())
                     .col(
                         ColumnDef::new(Passwords::CreatedAt)
                             .timestamp_with_time_zone()
@@ -436,7 +435,6 @@ enum Passwords {
     Id,
     UserId,
     PasswordHash,
-    Salt,
     CreatedAt,
     UpdatedAt,
 }

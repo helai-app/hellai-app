@@ -6,7 +6,9 @@ use helai_api_core_service::{
     TokenResponse, UserResponse, UserRole,
 };
 use middleware::auth_token::{RefreshClaims, SessionClaims};
+
 use migration::{Migrator, MigratorTrait};
+use service::password_validation::{hash_password, verify_hash_password};
 use tonic::{transport::Server, Request, Response, Status};
 
 use sea_orm::{Database, DatabaseConnection};
@@ -34,6 +36,12 @@ impl UserService for MyServer {
         let user_id: i64 = 1;
         let session_id: i64 = 1;
 
+        let request_data = request.into_inner();
+
+        let password = request_data.password;
+
+        verify_hash_password(password.as_str(), "admin")?;
+
         let session_claims: SessionClaims = SessionClaims::new(user_id);
         let session_token = session_claims
             .into_token()
@@ -60,6 +68,12 @@ impl UserService for MyServer {
         request: Request<RegisterUserRequest>,
     ) -> Result<Response<UserResponse>, Status> {
         println!("Got a request from {:?}", request.remote_addr());
+
+        let request_data = request.into_inner();
+
+        let password_data = hash_password(&request_data.password)?;
+
+        println!("Hash:{}\nSalt:{}", password_data.0, password_data.1);
 
         let reply = UserResponse {
             user_id: 1,

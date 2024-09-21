@@ -5,6 +5,8 @@ use tonic::Status;
 pub enum CoreErrors {
     #[error("jwt generation error : {0}")]
     JWTGenerationError(String),
+    #[error("hash pasword error : {0}")]
+    HashPasswordError(String),
     #[error("unknown data store error")]
     Unknown,
 }
@@ -27,11 +29,44 @@ impl From<jsonwebtoken::errors::Error> for CoreErrors {
     }
 }
 
+impl From<argon2::password_hash::Error> for CoreErrors {
+    fn from(err: argon2::password_hash::Error) -> Self {
+        let error_message: String = match err {
+            argon2::password_hash::Error::Algorithm => "failed_protect_password".to_string(),
+            argon2::password_hash::Error::B64Encoding(_) => "failed_protect_password".to_string(),
+            argon2::password_hash::Error::Crypto => "failed_protect_password".to_string(),
+            argon2::password_hash::Error::OutputSize {
+                provided: _,
+                expected: _,
+            } => "failed_protect_password".to_string(),
+            argon2::password_hash::Error::ParamNameDuplicated => {
+                "failed_protect_password".to_string()
+            }
+            argon2::password_hash::Error::ParamNameInvalid => "failed_protect_password".to_string(),
+            argon2::password_hash::Error::ParamValueInvalid(_) => {
+                "failed_protect_password".to_string()
+            }
+            argon2::password_hash::Error::ParamsMaxExceeded => {
+                "failed_protect_password".to_string()
+            }
+            argon2::password_hash::Error::Password => "invalid_password".to_string(),
+            argon2::password_hash::Error::PhcStringField => "invalid_password".to_string(),
+            argon2::password_hash::Error::PhcStringTrailingData => "invalid_password".to_string(),
+            argon2::password_hash::Error::SaltInvalid(_) => "invalid_password".to_string(),
+            argon2::password_hash::Error::Version => "invalid_password".to_string(),
+            _ => err.to_string(),
+        };
+
+        CoreErrors::JWTGenerationError(error_message)
+    }
+}
+
 /// From CoreError into TONIC error
 impl From<CoreErrors> for Status {
     fn from(error: CoreErrors) -> Self {
         match error {
             CoreErrors::JWTGenerationError(message) => Status::invalid_argument(message),
+            CoreErrors::HashPasswordError(message) => Status::permission_denied(message),
             _ => Status::internal("Internal Server Error".to_string()),
         }
     }

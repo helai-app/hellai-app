@@ -8,6 +8,14 @@ if [ -z "$JWT_SECRET_KEY" ]; then
     JWT_SECRET_KEY=$(openssl rand -hex 512)
 fi
 
+# Prompt for PASSWORD_SECRET_KEY
+read -p "Enter PASSWORD_SECRET_KEY (leave blank to generate randomly): " PASSWORD_SECRET_KEY
+
+if [ -z "$PASSWORD_SECRET_KEY" ]; then
+    # Generate a random 512-character hex string
+    PASSWORD_SECRET_KEY=$(openssl rand -hex 256)
+fi
+
 # Prompt for POSTGRES_DB with default value
 read -p "Enter POSTGRES_DB [core_service_db]: " POSTGRES_DB
 POSTGRES_DB=${POSTGRES_DB:-core_service_db}
@@ -26,10 +34,11 @@ DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost/${POSTG
 # Write variables to .env file
 cat > .env <<EOL
 JWT_SECRET_KEY=$JWT_SECRET_KEY
+PASSWORD_SECRET_KEY=$PASSWORD_SECRET_KEY
 POSTGRES_DB=$POSTGRES_DB
 POSTGRES_USER=$POSTGRES_USER
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 DATABASE_URL=$DATABASE_URL
 EOL
 
-echo "Core service success init."
+echo "Core service successfully initialized."

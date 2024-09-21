@@ -29,8 +29,9 @@ impl MigrationTrait for Migration {
         // Insert test user: admin
         // Note: For security, we should hash the password 'admin'. For this example, we'll use a placeholder hash.
         // In a real application, use a proper password hashing algorithm like bcrypt or argon2.
-        let password_hash = "hashed_admin_password"; // Replace with actual hash
-        let salt = "random_salt"; // Replace with actual salt
+        let password_data =
+            service::password_validation::hash_password("admin").expect("Can't get hash password");
+        let password_hash = password_data.0; // Actual hash
 
         // Insert user into Users table
         manager.get_connection().execute(Statement::from_sql_and_values(
@@ -56,15 +57,14 @@ impl MigrationTrait for Migration {
             .try_get("", "id")?;
 
         // Insert password into Passwords table
-        manager.get_connection().execute(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            r#"INSERT INTO "passwords" ("user_id", "password_hash", "salt") VALUES ($1, $2, $3)"#,
-            vec![
-                user_id.into(),
-                password_hash.into(),
-                salt.into(),
-            ],
-        )).await?;
+        manager
+            .get_connection()
+            .execute(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                r#"INSERT INTO "passwords" ("user_id", "password_hash") VALUES ($1, $2)"#,
+                vec![user_id.into(), password_hash.into()],
+            ))
+            .await?;
 
         // Assign global role 'admin' to the user
         // Retrieve the 'admin' role ID from GlobalRoles
