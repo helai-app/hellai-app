@@ -25,12 +25,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .unique_key(),
                     )
-                    .col(
-                        ColumnDef::new(Users::Email)
-                            .string()
-                            .not_null()
-                            .unique_key(),
-                    )
+                    .col(ColumnDef::new(Users::Email).string().unique_key())
                     .col(
                         ColumnDef::new(Users::IsActive)
                             .boolean()
@@ -92,64 +87,64 @@ impl MigrationTrait for Migration {
             .await?;
 
         // 3. SocialLogins
-        manager
-            .create_table(
-                Table::create()
-                    .table(SocialLogins::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(SocialLogins::Id)
-                            .integer()
-                            .not_null()
-                            .primary_key()
-                            .auto_increment(),
-                    )
-                    .col(ColumnDef::new(SocialLogins::UserId).integer().not_null())
-                    .col(ColumnDef::new(SocialLogins::Provider).string().not_null())
-                    .col(
-                        ColumnDef::new(SocialLogins::ProviderUserId)
-                            .string()
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(SocialLogins::AccessToken).string())
-                    .col(ColumnDef::new(SocialLogins::RefreshToken).string())
-                    .col(ColumnDef::new(SocialLogins::TokenExpiresAt).timestamp_with_time_zone())
-                    .col(
-                        ColumnDef::new(SocialLogins::CreatedAt)
-                            .timestamp_with_time_zone()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(SocialLogins::UpdatedAt)
-                            .timestamp_with_time_zone()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_sociallogins_user")
-                            .from(SocialLogins::Table, SocialLogins::UserId)
-                            .to(Users::Table, Users::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_sociallogins_provider_user")
-                            .col(SocialLogins::Provider)
-                            .col(SocialLogins::ProviderUserId)
-                            .unique(),
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_sociallogins_user_provider")
-                            .col(SocialLogins::UserId)
-                            .col(SocialLogins::Provider)
-                            .unique(),
-                    )
-                    .to_owned(),
-            )
-            .await?;
+        // manager
+        //     .create_table(
+        //         Table::create()
+        //             .table(SocialLogins::Table)
+        //             .if_not_exists()
+        //             .col(
+        //                 ColumnDef::new(SocialLogins::Id)
+        //                     .integer()
+        //                     .not_null()
+        //                     .primary_key()
+        //                     .auto_increment(),
+        //             )
+        //             .col(ColumnDef::new(SocialLogins::UserId).integer().not_null())
+        //             .col(ColumnDef::new(SocialLogins::Provider).string().not_null())
+        //             .col(
+        //                 ColumnDef::new(SocialLogins::ProviderUserId)
+        //                     .string()
+        //                     .not_null(),
+        //             )
+        //             .col(ColumnDef::new(SocialLogins::AccessToken).string())
+        //             .col(ColumnDef::new(SocialLogins::RefreshToken).string())
+        //             .col(ColumnDef::new(SocialLogins::TokenExpiresAt).timestamp_with_time_zone())
+        //             .col(
+        //                 ColumnDef::new(SocialLogins::CreatedAt)
+        //                     .timestamp_with_time_zone()
+        //                     .not_null()
+        //                     .default(Expr::current_timestamp()),
+        //             )
+        //             .col(
+        //                 ColumnDef::new(SocialLogins::UpdatedAt)
+        //                     .timestamp_with_time_zone()
+        //                     .not_null()
+        //                     .default(Expr::current_timestamp()),
+        //             )
+        //             .foreign_key(
+        //                 ForeignKey::create()
+        //                     .name("fk_sociallogins_user")
+        //                     .from(SocialLogins::Table, SocialLogins::UserId)
+        //                     .to(Users::Table, Users::Id)
+        //                     .on_delete(ForeignKeyAction::Cascade),
+        //             )
+        //             .index(
+        //                 Index::create()
+        //                     .name("idx_sociallogins_provider_user")
+        //                     .col(SocialLogins::Provider)
+        //                     .col(SocialLogins::ProviderUserId)
+        //                     .unique(),
+        //             )
+        //             .index(
+        //                 Index::create()
+        //                     .name("idx_sociallogins_user_provider")
+        //                     .col(SocialLogins::UserId)
+        //                     .col(SocialLogins::Provider)
+        //                     .unique(),
+        //             )
+        //             .to_owned(),
+        //     )
+        //     .await?;
 
         // 4. GlobalRoles
         manager
@@ -403,9 +398,9 @@ impl MigrationTrait for Migration {
         manager
             .drop_table(Table::drop().table(GlobalRoles::Table).to_owned())
             .await?;
-        manager
-            .drop_table(Table::drop().table(SocialLogins::Table).to_owned())
-            .await?;
+        // manager
+        //     .drop_table(Table::drop().table(SocialLogins::Table).to_owned())
+        //     .await?;
         manager
             .drop_table(Table::drop().table(Passwords::Table).to_owned())
             .await?;
@@ -439,19 +434,19 @@ enum Passwords {
     UpdatedAt,
 }
 
-#[derive(Iden)]
-enum SocialLogins {
-    Table,
-    Id,
-    UserId,
-    Provider,
-    ProviderUserId,
-    AccessToken,
-    RefreshToken,
-    TokenExpiresAt,
-    CreatedAt,
-    UpdatedAt,
-}
+// #[derive(Iden)]
+// enum SocialLogins {
+//     Table,
+//     Id,
+//     UserId,
+//     Provider,
+//     ProviderUserId,
+//     AccessToken,
+//     RefreshToken,
+//     TokenExpiresAt,
+//     CreatedAt,
+//     UpdatedAt,
+// }
 
 #[derive(Iden)]
 enum GlobalRoles {

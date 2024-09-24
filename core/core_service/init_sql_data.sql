@@ -2,7 +2,7 @@
 CREATE TABLE Users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(255) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -19,20 +19,20 @@ CREATE TABLE Passwords (
 );
 
 -- 3. SocialLogins
-CREATE TABLE SocialLogins (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    provider VARCHAR(50) NOT NULL,
-    provider_user_id VARCHAR(255) NOT NULL,
-    access_token VARCHAR(255),
-    refresh_token VARCHAR(255),
-    token_expires_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
-    UNIQUE (provider, provider_user_id),
-    UNIQUE (user_id, provider)
-);
+-- CREATE TABLE SocialLogins (
+--     id SERIAL PRIMARY KEY,
+--     user_id INTEGER NOT NULL,
+--     provider VARCHAR(50) NOT NULL,
+--     provider_user_id VARCHAR(255) NOT NULL,
+--     access_token VARCHAR(255),
+--     refresh_token VARCHAR(255),
+--     token_expires_at TIMESTAMPTZ,
+--     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+--     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+--     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
+--     UNIQUE (provider, provider_user_id),
+--     UNIQUE (user_id, provider)
+-- );
 
 -- 4. GlobalRoles
 CREATE TABLE GlobalRoles (

@@ -7,7 +7,6 @@ enum UserRole {
   ADMINISTRATOR = 0;
   USER = 1;
   TESTER = 2;
-  GUEST = 3;
 }
 
 // Service handling user-related operations

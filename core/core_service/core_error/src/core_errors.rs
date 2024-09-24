@@ -1,3 +1,4 @@
+use sea_orm::DbErr;
 use thiserror::Error;
 use tonic::Status;
 
@@ -7,6 +8,8 @@ pub enum CoreErrors {
     JWTGenerationError(String),
     #[error("hash pasword error : {0}")]
     HashPasswordError(String),
+    #[error("Data base error : {0}")]
+    DatabaseServiceError(String),
     #[error("unknown data store error")]
     Unknown,
 }
@@ -29,6 +32,7 @@ impl From<jsonwebtoken::errors::Error> for CoreErrors {
     }
 }
 
+/// Argon2 PAssword hash
 impl From<argon2::password_hash::Error> for CoreErrors {
     fn from(err: argon2::password_hash::Error) -> Self {
         let error_message: String = match err {
@@ -61,13 +65,45 @@ impl From<argon2::password_hash::Error> for CoreErrors {
     }
 }
 
+/// Sea ORM
+impl From<DbErr> for CoreErrors {
+    fn from(err: DbErr) -> Self {
+        let error_message: String = match err {
+            DbErr::ConnectionAcquire(_) => "failed_get_db_data".to_string(),
+            DbErr::TryIntoErr {
+                from: _,
+                into: _,
+                source: _,
+            } => "data_format_error".to_string(),
+            DbErr::Conn(_) => "failed_get_db_data".to_string(),
+            DbErr::Exec(_) => "failed_get_db_data".to_string(),
+            DbErr::Query(_) => "failed_get_db_data".to_string(),
+            DbErr::ConvertFromU64(_) => "data_format_error".to_string(),
+            DbErr::UnpackInsertId => "data_format_error".to_string(),
+            DbErr::UpdateGetPrimaryKey => "failed_update_data".to_string(),
+            DbErr::RecordNotFound(_) => "failed_get_data".to_string(),
+            DbErr::AttrNotSet(_) => "data_format_error".to_string(),
+            DbErr::Custom(_) => "unknown_error".to_string(),
+            DbErr::Type(_) => "data_format_error".to_string(),
+            DbErr::Json(_) => "data_format_error".to_string(),
+            DbErr::Migration(_) => "failed_update_data".to_string(),
+            DbErr::RecordNotInserted => "failed_update_data".to_string(),
+            DbErr::RecordNotUpdated => "failed_update_data".to_string(),
+        };
+
+        CoreErrors::DatabaseServiceError(error_message)
+    }
+}
+
 /// From CoreError into TONIC error
 impl From<CoreErrors> for Status {
     fn from(error: CoreErrors) -> Self {
         match error {
             CoreErrors::JWTGenerationError(message) => Status::invalid_argument(message),
             CoreErrors::HashPasswordError(message) => Status::permission_denied(message),
-            _ => Status::internal("Internal Server Error".to_string()),
+            CoreErrors::DatabaseServiceError(message) => Status::permission_denied(message),
+            CoreErrors::Unknown => Status::internal("Internal Server Error".to_string()),
+            // _ => Status::internal("Internal Server Error".to_string()),
         }
     }
 }
