@@ -3,7 +3,7 @@ use std::env;
 use helai_api_core_service::{
     user_service_server::{UserService, UserServiceServer},
     AuthenticateWithPasswordRequest, RefreshSessionTokenRequest, RegisterUserRequest,
-    TokenResponse, UserResponse, UserRole,
+    TokenResponse, UserCompanyResponse, UserResponse, UserRole,
 };
 use middleware::auth_token::{RefreshClaims, SessionClaims};
 
@@ -55,9 +55,13 @@ impl UserService for MyServer {
         let reply = UserResponse {
             user_id: user_id as i32,
             user_role: UserRole::User.into(),
-            email: "test@test.com".into(),
+            email: Some("test@test.com".into()),
             session_token: session_token,
             refresh_token: refresh_token,
+            user_companies: vec![UserCompanyResponse {
+                company_id: 1,
+                company_name: "test".to_string(),
+            }],
         };
 
         Ok(Response::new(reply))
@@ -78,9 +82,13 @@ impl UserService for MyServer {
         let reply = UserResponse {
             user_id: 1,
             user_role: UserRole::User.into(),
-            email: "test@test.com".into(),
+            email: Some("test@test.com".into()),
             session_token: "".into(),
             refresh_token: "".into(),
+            user_companies: vec![UserCompanyResponse {
+                company_id: 1,
+                company_name: "test".to_string(),
+            }],
         };
 
         Ok(Response::new(reply))

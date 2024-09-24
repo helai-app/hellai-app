@@ -86,67 +86,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 3. SocialLogins
-        // manager
-        //     .create_table(
-        //         Table::create()
-        //             .table(SocialLogins::Table)
-        //             .if_not_exists()
-        //             .col(
-        //                 ColumnDef::new(SocialLogins::Id)
-        //                     .integer()
-        //                     .not_null()
-        //                     .primary_key()
-        //                     .auto_increment(),
-        //             )
-        //             .col(ColumnDef::new(SocialLogins::UserId).integer().not_null())
-        //             .col(ColumnDef::new(SocialLogins::Provider).string().not_null())
-        //             .col(
-        //                 ColumnDef::new(SocialLogins::ProviderUserId)
-        //                     .string()
-        //                     .not_null(),
-        //             )
-        //             .col(ColumnDef::new(SocialLogins::AccessToken).string())
-        //             .col(ColumnDef::new(SocialLogins::RefreshToken).string())
-        //             .col(ColumnDef::new(SocialLogins::TokenExpiresAt).timestamp_with_time_zone())
-        //             .col(
-        //                 ColumnDef::new(SocialLogins::CreatedAt)
-        //                     .timestamp_with_time_zone()
-        //                     .not_null()
-        //                     .default(Expr::current_timestamp()),
-        //             )
-        //             .col(
-        //                 ColumnDef::new(SocialLogins::UpdatedAt)
-        //                     .timestamp_with_time_zone()
-        //                     .not_null()
-        //                     .default(Expr::current_timestamp()),
-        //             )
-        //             .foreign_key(
-        //                 ForeignKey::create()
-        //                     .name("fk_sociallogins_user")
-        //                     .from(SocialLogins::Table, SocialLogins::UserId)
-        //                     .to(Users::Table, Users::Id)
-        //                     .on_delete(ForeignKeyAction::Cascade),
-        //             )
-        //             .index(
-        //                 Index::create()
-        //                     .name("idx_sociallogins_provider_user")
-        //                     .col(SocialLogins::Provider)
-        //                     .col(SocialLogins::ProviderUserId)
-        //                     .unique(),
-        //             )
-        //             .index(
-        //                 Index::create()
-        //                     .name("idx_sociallogins_user_provider")
-        //                     .col(SocialLogins::UserId)
-        //                     .col(SocialLogins::Provider)
-        //                     .unique(),
-        //             )
-        //             .to_owned(),
-        //     )
-        //     .await?;
-
-        // 4. GlobalRoles
+        // 3. GlobalRoles
         manager
             .create_table(
                 Table::create()
@@ -170,7 +110,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 5. UserGlobalRoles
+        // 4. UserGlobalRoles
         manager
             .create_table(
                 Table::create()
@@ -214,7 +154,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 6. Companies
+        // 5. Companies
         manager
             .create_table(
                 Table::create()
@@ -237,7 +177,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 7. UserCompanies
+        // 6. UserCompanies
         manager
             .create_table(
                 Table::create()
@@ -293,7 +233,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 8. CompanyRoles
+        // 7. CompanyRoles (Define roles within a company)
         manager
             .create_table(
                 Table::create()
@@ -309,6 +249,18 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(CompanyRoles::CompanyId).integer().not_null())
                     .col(ColumnDef::new(CompanyRoles::Name).string().not_null())
                     .col(ColumnDef::new(CompanyRoles::Description).string())
+                    .col(
+                        ColumnDef::new(CompanyRoles::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(CompanyRoles::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_companyroles_company")
@@ -327,7 +279,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 9. UserCompanyRoles
+        // 8. UserCompanyRoles (Assign users to roles within a company)
         manager
             .create_table(
                 Table::create()
@@ -398,9 +350,6 @@ impl MigrationTrait for Migration {
         manager
             .drop_table(Table::drop().table(GlobalRoles::Table).to_owned())
             .await?;
-        // manager
-        //     .drop_table(Table::drop().table(SocialLogins::Table).to_owned())
-        //     .await?;
         manager
             .drop_table(Table::drop().table(Passwords::Table).to_owned())
             .await?;
@@ -433,20 +382,6 @@ enum Passwords {
     CreatedAt,
     UpdatedAt,
 }
-
-// #[derive(Iden)]
-// enum SocialLogins {
-//     Table,
-//     Id,
-//     UserId,
-//     Provider,
-//     ProviderUserId,
-//     AccessToken,
-//     RefreshToken,
-//     TokenExpiresAt,
-//     CreatedAt,
-//     UpdatedAt,
-// }
 
 #[derive(Iden)]
 enum GlobalRoles {
@@ -488,6 +423,8 @@ enum CompanyRoles {
     CompanyId,
     Name,
     Description,
+    CreatedAt,
+    UpdatedAt,
 }
 
 #[derive(Iden)]

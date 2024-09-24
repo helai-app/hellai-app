@@ -40,11 +40,18 @@ message RefreshSessionTokenRequest { string refresh_token = 1; }
 
 // Response message for user-related RPCs
 message UserResponse {
-  int32 user_id = 1;        // Unique identifier for the user
-  UserRole user_role = 2;   // Role of the user
-  string email = 3;         // Email of the user
-  string session_token = 4; // Session token for the user
-  string refresh_token = 5; // Refresh token for the user
+  int32 user_id = 1;         // Unique identifier for the user
+  UserRole user_role = 2;    // Role of the user
+  optional string email = 3; // Email of the user
+  string session_token = 4;  // Session token for the user
+  string refresh_token = 5;  // Refresh token for the user
+  repeated UserCompanyResponse user_companies = 6;
+}
+
+// Response message for user-related RPCs
+message UserCompanyResponse {
+  int32 company_id = 1;
+  string company_name = 2;
 }
 
 // Response message containing only a new session token
