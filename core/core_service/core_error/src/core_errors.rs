@@ -10,6 +10,8 @@ pub enum CoreErrors {
     HashPasswordError(String),
     #[error("Data base error : {0}")]
     DatabaseServiceError(String),
+    #[error("Data validation Error : {0}")]
+    DataValidationError(String),
     #[error("unknown data store error")]
     Unknown,
 }
@@ -102,6 +104,7 @@ impl From<CoreErrors> for Status {
             CoreErrors::JWTGenerationError(message) => Status::invalid_argument(message),
             CoreErrors::HashPasswordError(message) => Status::permission_denied(message),
             CoreErrors::DatabaseServiceError(message) => Status::permission_denied(message),
+            CoreErrors::DataValidationError(message) => Status::invalid_argument(message),
             CoreErrors::Unknown => Status::internal("Internal Server Error".to_string()),
             // _ => Status::internal("Internal Server Error".to_string()),
         }

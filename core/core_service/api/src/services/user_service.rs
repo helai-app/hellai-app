@@ -9,7 +9,11 @@ use middleware::auth_token::{RefreshClaims, SessionClaims};
 use service::password_validation::{hash_password, verify_hash_password};
 use tonic::{Request, Response, Status};
 
-use crate::{helai_api_core_service, middleware, MyServer};
+use crate::{
+    helai_api_core_service,
+    middleware::{self, validators},
+    MyServer,
+};
 
 #[tonic::async_trait]
 impl UserService for MyServer {
@@ -17,14 +21,15 @@ impl UserService for MyServer {
         &self,
         request: Request<AuthenticateWithPasswordRequest>,
     ) -> Result<Response<UserResponse>, Status> {
-        println!("Got a request from {:?}", request.remote_addr());
+        println!("Got a request: {:?}", request);
+
+        let request = request.into_inner();
+
+        let password = validators::login_format_validation(request.login)?;
+        let login = validators::password_format_validation(request.password)?;
 
         let user_id: i64 = 1;
         let session_id: i64 = 1;
-
-        let request_data = request.into_inner();
-
-        let password = request_data.password;
 
         verify_hash_password(password.as_str(), "admin")?;
 
