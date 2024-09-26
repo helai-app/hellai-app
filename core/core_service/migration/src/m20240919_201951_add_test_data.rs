@@ -47,7 +47,9 @@ impl MigrationTrait for Migration {
 
         // 3. Insert test user: admin
         // Note: Replace 'hashed_admin_password' with an actual hashed password using a secure algorithm.
-        let password_hash = "hashed_admin_password"; // Placeholder
+        let password_data =
+            service::password_validation::hash_password("admin").expect("Can't get hash password");
+        let password_hash = password_data.0; // Actual hash
 
         // Insert user into Users table and retrieve the generated user ID
         let user_id: i32 = {
