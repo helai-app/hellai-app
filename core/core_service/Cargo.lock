@@ -136,6 +136,7 @@ checksum = "4e1496f8fb1fbf272686b8d37f523dab3e4a7443300055e74cdaa449f3114356"
 name = "api"
 version = "0.1.0"
 dependencies = [
+ "core_database",
  "core_error",
  "jsonwebtoken",
  "lazy_static",

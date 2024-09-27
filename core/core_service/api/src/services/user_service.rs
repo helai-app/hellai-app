@@ -1,7 +1,7 @@
+use core_database::queries::user_query::UserQuery;
 use helai_api_core_service::{
-    user_service_server::UserService, AuthenticateWithPasswordRequest, GlobalUserRole,
-    RefreshSessionTokenRequest, RegisterUserRequest, TokenResponse, UserCompanyResponse,
-    UserCompanyRoleResponse, UserResponse,
+    user_service_server::UserService, AuthenticateWithPasswordRequest, RefreshSessionTokenRequest,
+    RegisterUserRequest, TokenResponse, UserCompanyResponse, UserCompanyRoleResponse, UserResponse,
 };
 
 use middleware::auth_token::{RefreshClaims, SessionClaims};
@@ -23,30 +23,35 @@ impl UserService for MyServer {
     ) -> Result<Response<UserResponse>, Status> {
         println!("Got a request: {:?}", request);
 
+        let conn = &self.connection;
+
         let request = request.into_inner();
 
-        let password = validators::login_format_validation(request.login)?;
-        let login = validators::password_format_validation(request.password)?;
+        // Check if there correct data in request
+        let login: String = validators::login_format_validation(request.login)?;
+        let password: String = validators::password_format_validation(request.password)?;
 
-        let user_id: i64 = 1;
-        let session_id: i64 = 1;
+        // Get user info from bd
+        let user_with_password = match UserQuery::get_user_by_login(conn, login).await? {
+            Some(user) => user,
+            None => return Err(Status::invalid_argument("failed_find_user")),
+        };
 
-        verify_hash_password(password.as_str(), "admin")?;
+        let user = user_with_password.0;
 
-        let session_claims: SessionClaims = SessionClaims::new(user_id);
-        let session_token = session_claims
-            .into_token()
-            .expect("Failed to create session JWT token");
+        // Check that password from request is same as user set
+        verify_hash_password(&user_with_password.1.password_hash, password.as_str())?;
 
-        let refresh_claims: RefreshClaims = RefreshClaims::new(session_id, user_id);
-        let refresh_token = refresh_claims
-            .into_token()
-            .expect("Failed to create refresh JWT token");
+        // Get User session tokens
+        let session_claims: SessionClaims = SessionClaims::new(user.id as i64);
+        let session_token: String = session_claims.into_token()?;
+
+        let refresh_claims: RefreshClaims = RefreshClaims::new(user.id as i64);
+        let refresh_token = refresh_claims.into_token()?;
 
         let reply = UserResponse {
-            user_id: user_id as i32,
-            user_role: GlobalUserRole::User.into(),
-            email: Some("test@test.com".into()),
+            user_id: user.id,
+            email: user.email,
             session_token: session_token,
             refresh_token: refresh_token,
             user_companies: vec![UserCompanyResponse {
@@ -77,7 +82,6 @@ impl UserService for MyServer {
 
         let reply = UserResponse {
             user_id: 1,
-            user_role: GlobalUserRole::User.into(),
             email: Some("test@test.com".into()),
             session_token: "".into(),
             refresh_token: "".into(),

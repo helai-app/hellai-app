@@ -2,16 +2,6 @@ syntax = "proto3";
 
 package helai_api_core_service;
 
-// Enum representing the different global roles a user can have
-enum GlobalUserRole {
-  // User with administrative privileges
-  ADMINISTRATOR = 0;
-  // Regular user with standard access
-  USER = 1;
-  // User with testing privileges, limited access
-  TESTER = 2;
-}
-
 // Service handling user-related operations
 service UserService {
   // Authenticate using login and password, returns user details with tokens
@@ -46,13 +36,12 @@ message RefreshSessionTokenRequest {
 
 // Response message containing user details and tokens
 message UserResponse {
-  int32 user_id = 1;            // Unique identifier for the user
-  GlobalUserRole user_role = 2; // Global role assigned to the user
-  optional string email = 3;    // Email of the user
-  string session_token = 4;     // New session token for authenticated access
-  string refresh_token = 5;     // New refresh token for session renewal
+  int32 user_id = 1;         // Unique identifier for the user
+  optional string email = 2; // Email of the user
+  string session_token = 3;  // New session token for authenticated access
+  string refresh_token = 4;  // New refresh token for session renewal
   repeated UserCompanyResponse user_companies =
-      6; // List of companies associated with the user
+      5; // List of companies associated with the user
 }
 
 // Message representing a company associated with the user

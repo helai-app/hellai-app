@@ -49,18 +49,15 @@ impl SessionClaims {
 pub struct RefreshClaims {
     // The sub depicts the so-called subject, so “who,” in this case (user ID)
     pub sub: i64,
-    // Session id
-    pub sid: i64,
     // Date when token expires
     exp: usize,
 }
 
 impl RefreshClaims {
-    pub fn new(sid: i64, sub: i64) -> RefreshClaims {
+    pub fn new(sub: i64) -> RefreshClaims {
         let now: usize = get_now_time_in_ms();
 
         RefreshClaims {
-            sid,
             exp: now + REFRESH_TOKEN_EXP,
             sub,
         }
