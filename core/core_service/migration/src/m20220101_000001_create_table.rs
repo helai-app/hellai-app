@@ -298,15 +298,39 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(
+                        ColumnDef::new(UserCompanyRoles::CompanyId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
                         ColumnDef::new(UserCompanyRoles::CompanyRoleId)
                             .integer()
                             .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserCompanyRoles::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(UserCompanyRoles::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_usercompanyroles_user")
                             .from(UserCompanyRoles::Table, UserCompanyRoles::UserId)
                             .to(Users::Table, Users::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_usercompanyroles_company")
+                            .from(UserCompanyRoles::Table, UserCompanyRoles::CompanyId)
+                            .to(Companies::Table, Companies::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
@@ -318,8 +342,9 @@ impl MigrationTrait for Migration {
                     )
                     .index(
                         Index::create()
-                            .name("idx_usercompanyroles_user_role")
+                            .name("idx_usercompanyroles_user_company_role")
                             .col(UserCompanyRoles::UserId)
+                            .col(UserCompanyRoles::CompanyId)
                             .col(UserCompanyRoles::CompanyRoleId)
                             .unique(),
                     )
@@ -432,5 +457,8 @@ enum UserCompanyRoles {
     Table,
     Id,
     UserId,
+    CompanyId,
     CompanyRoleId,
+    CreatedAt,
+    UpdatedAt,
 }

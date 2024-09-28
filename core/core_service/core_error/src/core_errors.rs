@@ -21,6 +21,8 @@ pub enum CoreErrors {
 /// JWTGenerationError
 impl From<jsonwebtoken::errors::Error> for CoreErrors {
     fn from(err: jsonwebtoken::errors::Error) -> Self {
+        println!("[jsonwebtoken::Error]: {}", err);
+
         let error_kind = err.kind();
         let error_message: String = match error_kind {
             jsonwebtoken::errors::ErrorKind::InvalidToken => "invalid_token".to_string(),
@@ -37,6 +39,8 @@ impl From<jsonwebtoken::errors::Error> for CoreErrors {
 /// Argon2 PAssword hash
 impl From<argon2::password_hash::Error> for CoreErrors {
     fn from(err: argon2::password_hash::Error) -> Self {
+        println!("[password_hash::Error]: {}", err);
+
         let error_message: String = match err {
             argon2::password_hash::Error::Algorithm => "failed_protect_password".to_string(),
             argon2::password_hash::Error::B64Encoding(_) => "failed_protect_password".to_string(),
@@ -70,6 +74,8 @@ impl From<argon2::password_hash::Error> for CoreErrors {
 /// Sea ORM
 impl From<DbErr> for CoreErrors {
     fn from(err: DbErr) -> Self {
+        println!("[DbErr]: {}", err);
+
         let error_message: String = match err {
             DbErr::ConnectionAcquire(_) => "failed_get_db_data".to_string(),
             DbErr::TryIntoErr {

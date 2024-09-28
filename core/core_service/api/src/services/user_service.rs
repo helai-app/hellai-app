@@ -1,4 +1,7 @@
-use core_database::queries::user_query::UserQuery;
+use core_database::queries::{
+    company_query::{CompanyQuery, UserCompany},
+    user_query::UserQuery,
+};
 use helai_api_core_service::{
     user_service_server::UserService, AuthenticateWithPasswordRequest, RefreshSessionTokenRequest,
     RegisterUserRequest, TokenResponse, UserCompanyResponse, UserCompanyRoleResponse, UserResponse,
@@ -40,7 +43,9 @@ impl UserService for MyServer {
         let user = user_with_password.0;
 
         // Check that password from request is same as user set
-        verify_hash_password(&user_with_password.1.password_hash, password.as_str())?;
+        if !verify_hash_password(&user_with_password.1.password_hash, password.as_str())? {
+            return Err(Status::invalid_argument("credential_failed"));
+        }
 
         // Get User session tokens
         let session_claims: SessionClaims = SessionClaims::new(user.id as i64);
@@ -49,21 +54,33 @@ impl UserService for MyServer {
         let refresh_claims: RefreshClaims = RefreshClaims::new(user.id as i64);
         let refresh_token = refresh_claims.into_token()?;
 
+        // Get User projects info
+        let user_companies: Vec<UserCompany> =
+            CompanyQuery::get_user_companies_with_roles(conn, user.id).await?;
+
+        let user_companies_response: Vec<UserCompanyResponse> = user_companies
+            .into_iter()
+            .map(|c| UserCompanyResponse {
+                company_id: c.id,
+                company_name: c.name,
+                user_role: Some(UserCompanyRoleResponse {
+                    role_id: c.user_role.id,
+                    name: c.user_role.name,
+                    description: c.user_role.description.unwrap_or(String::new()),
+                }),
+            })
+            .collect();
+
+        // Create respnse
         let reply = UserResponse {
             user_id: user.id,
             email: user.email,
             session_token: session_token,
             refresh_token: refresh_token,
-            user_companies: vec![UserCompanyResponse {
-                company_id: 1,
-                company_name: "test".to_string(),
-                user_role: Some(UserCompanyRoleResponse {
-                    role_id: 1,
-                    name: "test".to_string(),
-                    description: "".to_string(),
-                }),
-            }],
+            user_companies: user_companies_response,
         };
+
+        println!("Success: {:?}", reply);
 
         Ok(Response::new(reply))
     }

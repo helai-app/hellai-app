@@ -34,16 +34,6 @@ pub fn hash_password(password: &str) -> Result<(String, String), CoreErrors> {
 }
 
 pub fn verify_hash_password(hash: &str, password: &str) -> Result<bool, CoreErrors> {
-    // argon2::verify_encoded_ext(
-    //     hash,
-    //     password.as_bytes(),
-    //     PASSWORD_SECRET_KEY.as_bytes(),
-    //     &[],
-    // )
-    // .map_err(|_| {
-    //     DrawFlowServerError::PasswordUnauthorizedError("Password authentication failed".to_string())
-    // })
-
     let parsed_hash = PasswordHash::new(hash)?;
 
     println!("parsed_hash: {}", parsed_hash);

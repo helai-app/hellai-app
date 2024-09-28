@@ -50,6 +50,12 @@ Follow these steps to set up and run the Core Service:
 
 Configuration settings can be adjusted in the `.env` file or within the `docker-compose.yml` and `Cargo.toml` files as needed.
 
+## Info
+For first user use credential:
+login: admin
+password Admin123
+Change password after first enter
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request for any enhancements or bug fixes.
