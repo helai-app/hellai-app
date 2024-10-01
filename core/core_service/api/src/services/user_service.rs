@@ -2,6 +2,7 @@ use core_database::queries::{
     company_query::{CompanyQuery, UserCompany},
     user_query::UserQuery,
 };
+use core_debugger::tracing::{event, Level};
 use helai_api_core_service::{
     user_service_server::UserService, AuthenticateWithPasswordRequest, RefreshSessionTokenRequest,
     RegisterUserRequest, TokenResponse, UserCompanyResponse, UserCompanyRoleResponse, UserResponse,
@@ -24,7 +25,7 @@ impl UserService for MyServer {
         &self,
         request: Request<AuthenticateWithPasswordRequest>,
     ) -> Result<Response<UserResponse>, Status> {
-        println!("Got a request: {:?}", request);
+        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
 
         let conn = &self.connection;
 
@@ -80,17 +81,16 @@ impl UserService for MyServer {
             user_companies: user_companies_response,
         };
 
-        println!("Success: {:?}", reply);
+        let response = Response::new(reply);
 
-        Ok(Response::new(reply))
+        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
+        Ok(response)
     }
 
     async fn register_user(
         &self,
         request: Request<RegisterUserRequest>,
     ) -> Result<Response<UserResponse>, Status> {
-        println!("Got a request from {:?}", request.remote_addr());
-
         let request_data = request.into_inner();
 
         let password_data = hash_password(&request_data.password)?;
@@ -120,8 +120,6 @@ impl UserService for MyServer {
         &self,
         request: Request<RefreshSessionTokenRequest>,
     ) -> Result<Response<TokenResponse>, Status> {
-        println!("Got a request from {:?}", request.remote_addr());
-
         let refresh_token: String = request.into_inner().refresh_token;
 
         let request_claims = RefreshClaims::from_token(refresh_token)?;

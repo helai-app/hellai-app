@@ -36,8 +36,6 @@ pub fn hash_password(password: &str) -> Result<(String, String), CoreErrors> {
 pub fn verify_hash_password(hash: &str, password: &str) -> Result<bool, CoreErrors> {
     let parsed_hash = PasswordHash::new(hash)?;
 
-    println!("parsed_hash: {}", parsed_hash);
-
     let argon2 = Argon2::new_with_secret(
         JWT_SECRET.as_bytes(),
         argon2::Algorithm::Argon2id,
@@ -49,8 +47,6 @@ pub fn verify_hash_password(hash: &str, password: &str) -> Result<bool, CoreErro
     let is_valide_password = argon2
         .verify_password(password.as_bytes(), &parsed_hash)
         .is_ok();
-
-    println!("is_valide_password: {}", is_valide_password);
 
     Ok(is_valide_password)
 }

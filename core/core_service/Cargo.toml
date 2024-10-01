@@ -4,23 +4,36 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = [".", "api" , "core_database", "core_error", "core_error", "core_database", "service"]
+members = [
+    ".",
+    "api",
+    "core_database",
+    "core_error",
+    "core_error",
+    "core_database",
+    "service",
+    "core_debugger",
+]
 
 [dependencies]
 api = { path = "api" }
+core_debugger = { path = "core_debugger" }
+
 dotenvy = "0.15"
 tokio = { workspace = true }
 
 [workspace.dependencies]
-argon2 = {version = "0.5", features = ["password-hash"] }
+argon2 = { version = "0.5", features = ["password-hash"] }
 tokio = { version = "1.40", features = ["full"] }
-sea-orm = { version = "1.0.0-rc.5", features = [ 
-    "sqlx-postgres", # `ASYNC_RUNTIME` feature
+sea-orm = { version = "1.0.0-rc.5", features = [
+    "sqlx-postgres",        # `ASYNC_RUNTIME` feature
     "runtime-tokio-rustls", # `DATABASE_DRIVER` feature
-    "macros", 
-    "with-chrono", 
-    "with-uuid", 
-    ] }
+    "macros",
+    "with-chrono",
+    "with-uuid",
+] }
 jsonwebtoken = "9.3"
 tonic = "0.12"
 lazy_static = "1.5"
+chrono = "0.4"
+tower = "0.5"
