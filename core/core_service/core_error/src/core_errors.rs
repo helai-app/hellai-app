@@ -85,7 +85,13 @@ impl From<DbErr> for CoreErrors {
             } => "data_format_error".to_string(),
             DbErr::Conn(_) => "failed_get_db_data".to_string(),
             DbErr::Exec(_) => "failed_get_db_data".to_string(),
-            DbErr::Query(_) => "failed_get_db_data".to_string(),
+            DbErr::Query(err) => {
+                if err.to_string().contains("duplicate key") {
+                    "duplicate_db_data".to_string()
+                } else {
+                    "failed_get_db_data".to_string()
+                }
+            }
             DbErr::ConvertFromU64(_) => "data_format_error".to_string(),
             DbErr::UnpackInsertId => "data_format_error".to_string(),
             DbErr::UpdateGetPrimaryKey => "failed_update_data".to_string(),

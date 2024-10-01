@@ -14,7 +14,7 @@ use service::password_validation::{hash_password, verify_hash_password};
 use tonic::{Request, Response, Status};
 
 use crate::{
-    helai_api_core_service,
+    helai_api_core_service::{self, NewUserResponse},
     middleware::{self, validators},
     MyServer,
 };
@@ -90,30 +90,49 @@ impl UserService for MyServer {
     async fn register_user(
         &self,
         request: Request<RegisterUserRequest>,
-    ) -> Result<Response<UserResponse>, Status> {
-        let request_data = request.into_inner();
+    ) -> Result<Response<NewUserResponse>, Status> {
+        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
 
-        let password_data = hash_password(&request_data.password)?;
+        let conn = &self.connection;
 
-        println!("Hash:{}\nSalt:{}", password_data.0, password_data.1);
+        let request: RegisterUserRequest = request.into_inner();
 
-        let reply = UserResponse {
-            user_id: 1,
-            email: Some("test@test.com".into()),
-            session_token: "".into(),
-            refresh_token: "".into(),
-            user_companies: vec![UserCompanyResponse {
-                company_id: 1,
-                company_name: "test".to_string(),
-                user_role: Some(UserCompanyRoleResponse {
-                    role_id: 1,
-                    name: "test".to_string(),
-                    description: "".to_string(),
-                }),
-            }],
+        // Check if there correct data in request
+        let login: String = validators::login_format_validation(request.login)?;
+        let password: String = validators::password_format_validation(request.password)?;
+        let email: Option<String> = if let Some(email) = request.email {
+            Some(validators::email_format_validation(email)?)
+        } else {
+            None
         };
 
-        Ok(Response::new(reply))
+        // Secure password
+        let hash_password = hash_password(password.as_str())?;
+
+        // Create new user
+        let new_user = UserQuery::create_new_user(conn, login, hash_password.0, email).await?;
+
+        event!(target: "hellai_app_core_events", Level::DEBUG, "New user:\n{:?}", new_user);
+
+        // Get User session tokens
+        let session_claims: SessionClaims = SessionClaims::new(new_user.id as i64);
+        let session_token: String = session_claims.into_token()?;
+
+        let refresh_claims: RefreshClaims = RefreshClaims::new(new_user.id as i64);
+        let refresh_token = refresh_claims.into_token()?;
+
+        let reply = NewUserResponse {
+            user_id: new_user.id,
+            email: new_user.email,
+            session_token: session_token,
+            refresh_token: refresh_token,
+        };
+
+        let response = Response::new(reply);
+
+        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
+
+        Ok(response)
     }
 
     async fn refresh_session_token(
@@ -130,7 +149,10 @@ impl UserService for MyServer {
         let reply = TokenResponse {
             session_token: session_token,
         };
+        let response = Response::new(reply);
 
-        Ok(Response::new(reply))
+        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
+
+        Ok(response)
     }
 }
