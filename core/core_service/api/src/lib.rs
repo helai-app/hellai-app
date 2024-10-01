@@ -1,5 +1,6 @@
 use std::env;
 
+use colored::Colorize;
 use helai_api_core_service::user_service_server::UserServiceServer;
 
 use migration::{Migrator, MigratorTrait};
@@ -24,14 +25,25 @@ pub async fn start() -> Result<(), Box<dyn std::error::Error>> {
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
+    println!("{}", "\n===============================".blue().bold());
+    println!("🚀 Starting server...");
+
     // establish database connection
     let connection = Database::connect(&database_url).await?;
+    println!("✅ Database connected successfully");
 
     Migrator::up(&connection, None).await?;
+    println!("📦 Database migrations applied");
 
     let my_server = MyServer { connection };
 
-    println!("GreeterServer listening on {}", addr);
+    println!("{}", "\n===============================".blue().bold());
+    println!(
+        "✨ {} {}",
+        "GreeterServer".green().bold(),
+        format!("listening on {}", addr).yellow()
+    );
+    println!("{}", "===============================\n".blue().bold());
 
     Server::builder()
         .add_service(UserServiceServer::new(my_server))

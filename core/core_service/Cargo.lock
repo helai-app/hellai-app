@@ -145,6 +145,7 @@ checksum = "4e1496f8fb1fbf272686b8d37f523dab3e4a7443300055e74cdaa449f3114356"
 name = "api"
 version = "0.1.0"
 dependencies = [
+ "colored",
  "core_database",
  "core_debugger",
  "core_error",
@@ -646,6 +647,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3fd119d74b830634cea2a0f58bbd0d54540518a14397557951e79340abc28c0"
 
 [[package]]
+name = "colored"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbf2150cce219b664a8a70df7a1f933836724b503f8a413af9365b4dcc4d90b8"
+dependencies = [
+ "lazy_static",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -679,6 +690,7 @@ name = "core_debugger"
 version = "0.1.0"
 dependencies = [
  "ansi_term",
+ "colored",
  "regex",
  "serde_json",
  "tonic",
@@ -702,6 +714,7 @@ name = "core_service"
 version = "0.1.0"
 dependencies = [
  "api",
+ "colored",
  "core_debugger",
  "dotenvy",
  "tokio",

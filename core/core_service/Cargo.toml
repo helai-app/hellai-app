@@ -21,6 +21,7 @@ core_debugger = { path = "core_debugger" }
 
 dotenvy = "0.15"
 tokio = { workspace = true }
+colored = { workspace = true }
 
 [workspace.dependencies]
 argon2 = { version = "0.5", features = ["password-hash"] }
@@ -37,3 +38,4 @@ tonic = "0.12"
 lazy_static = "1.5"
 chrono = "0.4"
 tower = "0.5"
+colored = "2.1"
