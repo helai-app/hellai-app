@@ -1,7 +1,9 @@
-use std::env;
+use std::{env, sync::Arc};
 
 use colored::Colorize;
-use helai_api_core_service::user_service_server::UserServiceServer;
+use helai_api_core_service::{
+    projects_service_server::ProjectsServiceServer, user_service_server::UserServiceServer,
+};
 
 use migration::{Migrator, MigratorTrait};
 use tonic::transport::Server;
@@ -35,7 +37,10 @@ pub async fn start() -> Result<(), Box<dyn std::error::Error>> {
     Migrator::up(&connection, None).await?;
     println!("📦 Database migrations applied");
 
-    let my_server = MyServer { connection };
+    let my_server = MyServer {
+        connection: Arc::new(connection),
+        // other fields
+    };
 
     println!("{}", "\n===============================".blue().bold());
     println!(
@@ -46,7 +51,8 @@ pub async fn start() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "===============================\n".blue().bold());
 
     Server::builder()
-        .add_service(UserServiceServer::new(my_server))
+        .add_service(UserServiceServer::new(my_server.clone()))
+        .add_service(ProjectsServiceServer::new(my_server.clone()))
         .serve(addr)
         .await?;
 

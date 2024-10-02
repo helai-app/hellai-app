@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use sea_orm::DatabaseConnection;
 
-#[derive(Default)]
+#[derive(Clone)]
 pub struct MyServer {
-    pub connection: DatabaseConnection,
+    pub connection: Arc<DatabaseConnection>,
 }
