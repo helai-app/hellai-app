@@ -3,11 +3,11 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "company_roles")]
+#[sea_orm(table_name = "project_roles")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub company_id: i32,
+    pub project_id: i32,
     pub name: String,
     pub description: Option<String>,
     pub created_at: DateTimeWithTimeZone,
@@ -17,26 +17,26 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::companies::Entity",
-        from = "Column::CompanyId",
-        to = "super::companies::Column::Id",
+        belongs_to = "super::projects::Entity",
+        from = "Column::ProjectId",
+        to = "super::projects::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
-    Companies,
-    #[sea_orm(has_many = "super::user_company_roles::Entity")]
-    UserCompanyRoles,
+    Projects,
+    #[sea_orm(has_many = "super::user_project_roles::Entity")]
+    UserProjectRoles,
 }
 
-impl Related<super::companies::Entity> for Entity {
+impl Related<super::projects::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Companies.def()
+        Relation::Projects.def()
     }
 }
 
-impl Related<super::user_company_roles::Entity> for Entity {
+impl Related<super::user_project_roles::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserCompanyRoles.def()
+        Relation::UserProjectRoles.def()
     }
 }
 

@@ -154,21 +154,21 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 5. Companies
+        // 5. Projects
         manager
             .create_table(
                 Table::create()
-                    .table(Companies::Table)
+                    .table(Projects::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(Companies::Id)
+                        ColumnDef::new(Projects::Id)
                             .integer()
                             .not_null()
                             .primary_key()
                             .auto_increment(),
                     )
                     .col(
-                        ColumnDef::new(Companies::Name)
+                        ColumnDef::new(Projects::Name)
                             .string()
                             .not_null()
                             .unique_key(),
@@ -177,175 +177,171 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 6. UserCompanies
+        // 6. UserProjects
         manager
             .create_table(
                 Table::create()
-                    .table(UserCompanies::Table)
+                    .table(UserProjects::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(UserCompanies::Id)
+                        ColumnDef::new(UserProjects::Id)
                             .integer()
                             .not_null()
                             .primary_key()
                             .auto_increment(),
                     )
-                    .col(ColumnDef::new(UserCompanies::UserId).integer().not_null())
+                    .col(ColumnDef::new(UserProjects::UserId).integer().not_null())
+                    .col(ColumnDef::new(UserProjects::ProjectId).integer().not_null())
                     .col(
-                        ColumnDef::new(UserCompanies::CompanyId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(UserCompanies::CreatedAt)
+                        ColumnDef::new(UserProjects::CreatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .col(
-                        ColumnDef::new(UserCompanies::UpdatedAt)
+                        ColumnDef::new(UserProjects::UpdatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_usercompanies_user")
-                            .from(UserCompanies::Table, UserCompanies::UserId)
+                            .name("fk_userprojects_user")
+                            .from(UserProjects::Table, UserProjects::UserId)
                             .to(Users::Table, Users::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_usercompanies_company")
-                            .from(UserCompanies::Table, UserCompanies::CompanyId)
-                            .to(Companies::Table, Companies::Id)
+                            .name("fk_userprojects_project")
+                            .from(UserProjects::Table, UserProjects::ProjectId)
+                            .to(Projects::Table, Projects::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .index(
                         Index::create()
-                            .name("idx_usercompanies_user_company")
-                            .col(UserCompanies::UserId)
-                            .col(UserCompanies::CompanyId)
+                            .name("idx_userprojects_user_project")
+                            .col(UserProjects::UserId)
+                            .col(UserProjects::ProjectId)
                             .unique(),
                     )
                     .to_owned(),
             )
             .await?;
 
-        // 7. CompanyRoles (Define roles within a company)
+        // 7. ProjectRoles (Define roles within a project)
         manager
             .create_table(
                 Table::create()
-                    .table(CompanyRoles::Table)
+                    .table(ProjectRoles::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(CompanyRoles::Id)
+                        ColumnDef::new(ProjectRoles::Id)
                             .integer()
                             .not_null()
                             .primary_key()
                             .auto_increment(),
                     )
-                    .col(ColumnDef::new(CompanyRoles::CompanyId).integer().not_null())
-                    .col(ColumnDef::new(CompanyRoles::Name).string().not_null())
-                    .col(ColumnDef::new(CompanyRoles::Description).string())
+                    .col(ColumnDef::new(ProjectRoles::ProjectId).integer().not_null())
+                    .col(ColumnDef::new(ProjectRoles::Name).string().not_null())
+                    .col(ColumnDef::new(ProjectRoles::Description).string())
                     .col(
-                        ColumnDef::new(CompanyRoles::CreatedAt)
+                        ColumnDef::new(ProjectRoles::CreatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .col(
-                        ColumnDef::new(CompanyRoles::UpdatedAt)
+                        ColumnDef::new(ProjectRoles::UpdatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_companyroles_company")
-                            .from(CompanyRoles::Table, CompanyRoles::CompanyId)
-                            .to(Companies::Table, Companies::Id)
+                            .name("fk_projectroles_project")
+                            .from(ProjectRoles::Table, ProjectRoles::ProjectId)
+                            .to(Projects::Table, Projects::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .index(
                         Index::create()
-                            .name("idx_companyroles_company_name")
-                            .col(CompanyRoles::CompanyId)
-                            .col(CompanyRoles::Name)
+                            .name("idx_projectroles_project_name")
+                            .col(ProjectRoles::ProjectId)
+                            .col(ProjectRoles::Name)
                             .unique(),
                     )
                     .to_owned(),
             )
             .await?;
 
-        // 8. UserCompanyRoles (Assign users to roles within a company)
+        // 8. UserProjectRoles (Assign users to roles within a project)
         manager
             .create_table(
                 Table::create()
-                    .table(UserCompanyRoles::Table)
+                    .table(UserProjectRoles::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(UserCompanyRoles::Id)
+                        ColumnDef::new(UserProjectRoles::Id)
                             .integer()
                             .not_null()
                             .primary_key()
                             .auto_increment(),
                     )
                     .col(
-                        ColumnDef::new(UserCompanyRoles::UserId)
+                        ColumnDef::new(UserProjectRoles::UserId)
                             .integer()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(UserCompanyRoles::CompanyId)
+                        ColumnDef::new(UserProjectRoles::ProjectId)
                             .integer()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(UserCompanyRoles::CompanyRoleId)
+                        ColumnDef::new(UserProjectRoles::ProjectRoleId)
                             .integer()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(UserCompanyRoles::CreatedAt)
+                        ColumnDef::new(UserProjectRoles::CreatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .col(
-                        ColumnDef::new(UserCompanyRoles::UpdatedAt)
+                        ColumnDef::new(UserProjectRoles::UpdatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_usercompanyroles_user")
-                            .from(UserCompanyRoles::Table, UserCompanyRoles::UserId)
+                            .name("fk_userprojectroles_user")
+                            .from(UserProjectRoles::Table, UserProjectRoles::UserId)
                             .to(Users::Table, Users::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_usercompanyroles_company")
-                            .from(UserCompanyRoles::Table, UserCompanyRoles::CompanyId)
-                            .to(Companies::Table, Companies::Id)
+                            .name("fk_userprojectroles_project")
+                            .from(UserProjectRoles::Table, UserProjectRoles::ProjectId)
+                            .to(Projects::Table, Projects::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_usercompanyroles_companyrole")
-                            .from(UserCompanyRoles::Table, UserCompanyRoles::CompanyRoleId)
-                            .to(CompanyRoles::Table, CompanyRoles::Id)
+                            .name("fk_userprojectroles_projectrole")
+                            .from(UserProjectRoles::Table, UserProjectRoles::ProjectRoleId)
+                            .to(ProjectRoles::Table, ProjectRoles::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .index(
                         Index::create()
-                            .name("idx_usercompanyroles_user_company_role")
-                            .col(UserCompanyRoles::UserId)
-                            .col(UserCompanyRoles::CompanyId)
-                            .col(UserCompanyRoles::CompanyRoleId)
+                            .name("idx_userprojectroles_user_project_role")
+                            .col(UserProjectRoles::UserId)
+                            .col(UserProjectRoles::ProjectId)
+                            .col(UserProjectRoles::ProjectRoleId)
                             .unique(),
                     )
                     .to_owned(),
@@ -358,16 +354,16 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Drop tables in reverse order of creation
         manager
-            .drop_table(Table::drop().table(UserCompanyRoles::Table).to_owned())
+            .drop_table(Table::drop().table(UserProjectRoles::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(CompanyRoles::Table).to_owned())
+            .drop_table(Table::drop().table(ProjectRoles::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(UserCompanies::Table).to_owned())
+            .drop_table(Table::drop().table(UserProjects::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(Companies::Table).to_owned())
+            .drop_table(Table::drop().table(Projects::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(UserGlobalRoles::Table).to_owned())
@@ -425,27 +421,27 @@ enum UserGlobalRoles {
 }
 
 #[derive(Iden)]
-enum Companies {
+enum Projects {
     Table,
     Id,
     Name,
 }
 
 #[derive(Iden)]
-enum UserCompanies {
+enum UserProjects {
     Table,
     Id,
     UserId,
-    CompanyId,
+    ProjectId,
     CreatedAt,
     UpdatedAt,
 }
 
 #[derive(Iden)]
-enum CompanyRoles {
+enum ProjectRoles {
     Table,
     Id,
-    CompanyId,
+    ProjectId,
     Name,
     Description,
     CreatedAt,
@@ -453,12 +449,12 @@ enum CompanyRoles {
 }
 
 #[derive(Iden)]
-enum UserCompanyRoles {
+enum UserProjectRoles {
     Table,
     Id,
     UserId,
-    CompanyId,
-    CompanyRoleId,
+    ProjectId,
+    ProjectRoleId,
     CreatedAt,
     UpdatedAt,
 }

@@ -87,73 +87,72 @@ impl MigrationTrait for Migration {
         ))
         .await?;
 
-        // 6. Insert company: my_company and retrieve the company ID
-        let company_id: i32 = {
+        // 6. Insert project: my_project and retrieve the project ID
+        let project_id: i32 = {
             let result = txn
                 .query_one(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     r#"
-                    INSERT INTO "companies" ("name") VALUES ($1) RETURNING "id"
+                    INSERT INTO "projects" ("name") VALUES ($1) RETURNING "id"
                     "#,
-                    vec!["my_company".into()],
+                    vec!["my_project".into()],
                 ))
                 .await?
-                .ok_or(DbErr::Custom("Failed to insert company".to_owned()))?;
+                .ok_or(DbErr::Custom("Failed to insert project".to_owned()))?;
             result.try_get("", "id")?
         };
 
-        // 7. Assign user to company in UserCompanies
+        // 7. Assign user to project in UserProjects
         txn.execute(Statement::from_sql_and_values(
             DbBackend::Postgres,
             r#"
-            INSERT INTO "user_companies" ("user_id", "company_id") VALUES ($1, $2)
+            INSERT INTO "user_projects" ("user_id", "project_id") VALUES ($1, $2)
             "#,
-            vec![user_id.into(), company_id.into()],
+            vec![user_id.into(), project_id.into()],
         ))
         .await?;
 
-        // 8. Insert CompanyRoles: admin, user
+        // 8. Insert ProjectRoles: admin, user
         txn.execute(Statement::from_sql_and_values(
             DbBackend::Postgres,
             r#"
-            INSERT INTO "company_roles" ("company_id", "name", "description") VALUES
+            INSERT INTO "project_roles" ("project_id", "name", "description") VALUES
                 ($1, $2, $3), ($1, $4, $5)
             "#,
             vec![
-                company_id.into(),
+                project_id.into(),
                 "admin".into(),
-                "Company administrator".into(),
+                "Project administrator".into(),
                 "user".into(),
-                "Company regular user".into(),
+                "Project regular user".into(),
             ],
         ))
         .await?;
 
-        // 9. Retrieve the company role ID for 'admin'
-        let company_role_id: i32 = {
+        // 9. Retrieve the project role ID for 'admin'
+        let project_role_id: i32 = {
             let result = txn
                 .query_one(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     r#"
-                    SELECT "id" FROM "company_roles" WHERE "company_id" = $1 AND "name" = $2
+                    SELECT "id" FROM "project_roles" WHERE "project_id" = $1 AND "name" = $2
                     "#,
-                    vec![company_id.into(), "admin".into()],
+                    vec![project_id.into(), "admin".into()],
                 ))
                 .await?
                 .ok_or(DbErr::Custom(
-                    "Failed to retrieve company role ID".to_owned(),
+                    "Failed to retrieve project role ID".to_owned(),
                 ))?;
             result.try_get("", "id")?
         };
 
-        // 10. Assign company role 'admin' to the user
-        // Updated to include "company_id" in the insert statement
+        // 10. Assign project role 'admin' to the user
         txn.execute(Statement::from_sql_and_values(
             DbBackend::Postgres,
             r#"
-            INSERT INTO "user_company_roles" ("user_id", "company_id", "company_role_id") VALUES ($1, $2, $3)
+            INSERT INTO "user_project_roles" ("user_id", "project_id", "project_role_id") VALUES ($1, $2, $3)
             "#,
-            vec![user_id.into(), company_id.into(), company_role_id.into()],
+            vec![user_id.into(), project_id.into(), project_role_id.into()],
         ))
         .await?;
 

@@ -3,40 +3,27 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "users")]
+#[sea_orm(table_name = "projects")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     #[sea_orm(unique)]
-    pub username: String,
-    #[sea_orm(unique)]
-    pub email: Option<String>,
-    pub is_active: bool,
-    pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
+    pub name: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::passwords::Entity")]
-    Passwords,
-    #[sea_orm(has_many = "super::user_global_roles::Entity")]
-    UserGlobalRoles,
+    #[sea_orm(has_many = "super::project_roles::Entity")]
+    ProjectRoles,
     #[sea_orm(has_many = "super::user_project_roles::Entity")]
     UserProjectRoles,
     #[sea_orm(has_many = "super::user_projects::Entity")]
     UserProjects,
 }
 
-impl Related<super::passwords::Entity> for Entity {
+impl Related<super::project_roles::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Passwords.def()
-    }
-}
-
-impl Related<super::user_global_roles::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::UserGlobalRoles.def()
+        Relation::ProjectRoles.def()
     }
 }
 

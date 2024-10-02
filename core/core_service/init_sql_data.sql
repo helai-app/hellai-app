@@ -35,48 +35,48 @@ CREATE TABLE UserGlobalRoles (
     UNIQUE (user_id, global_role_id)
 );
 
--- 5. Companies
-CREATE TABLE Companies (
+-- 5. Projects
+CREATE TABLE Projects (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) UNIQUE NOT NULL
 );
 
--- 6. UserCompanies
-CREATE TABLE UserCompanies (
+-- 6. UserProjects
+CREATE TABLE UserProjects (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
-    company_id INTEGER NOT NULL,
+    project_id INTEGER NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
-    FOREIGN KEY (company_id) REFERENCES Companies(id) ON DELETE CASCADE,
-    UNIQUE (user_id, company_id)
+    FOREIGN KEY (project_id) REFERENCES Projects(id) ON DELETE CASCADE,
+    UNIQUE (user_id, project_id)
 );
 
--- 7. CompanyRoles (All roles within a company)
-CREATE TABLE CompanyRoles (
+-- 7. ProjectRoles (All roles within a project)
+CREATE TABLE ProjectRoles (
     id SERIAL PRIMARY KEY,
-    company_id INTEGER NOT NULL,
+    project_id INTEGER NOT NULL,
     name VARCHAR(255) NOT NULL,
     description VARCHAR(255),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (company_id) REFERENCES Companies(id) ON DELETE CASCADE,
-    UNIQUE (company_id, name)
+    FOREIGN KEY (project_id) REFERENCES Projects(id) ON DELETE CASCADE,
+    UNIQUE (project_id, name)
 );
 
--- 8. UserCompanyRoles (User roles in a company)
-CREATE TABLE UserCompanyRoles (
+-- 8. UserProjectRoles (User roles in a project)
+CREATE TABLE UserProjectRoles (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
-    company_id INTEGER NOT NULL,
-    company_role_id INTEGER NOT NULL,
+    project_id INTEGER NOT NULL,
+    project_role_id INTEGER NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE,
-    FOREIGN KEY (company_id) REFERENCES Companies(id) ON DELETE CASCADE,
-    FOREIGN KEY (company_role_id) REFERENCES CompanyRoles(id) ON DELETE CASCADE,
-    UNIQUE (user_id, company_id, company_role_id)
+    FOREIGN KEY (project_id) REFERENCES Projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_role_id) REFERENCES ProjectRoles(id) ON DELETE CASCADE,
+    UNIQUE (user_id, project_id, project_role_id)
 );
 
 -- ### Additional Notes ###
@@ -102,19 +102,18 @@ BEFORE UPDATE ON Passwords
 FOR EACH ROW
 EXECUTE PROCEDURE update_updated_at_column();
 
--- Repeat for other tables as needed
-CREATE TRIGGER update_usercompanies_updated_at
-BEFORE UPDATE ON UserCompanies
+CREATE TRIGGER update_userprojects_updated_at
+BEFORE UPDATE ON UserProjects
 FOR EACH ROW
 EXECUTE PROCEDURE update_updated_at_column();
 
-CREATE TRIGGER update_companyroles_updated_at
-BEFORE UPDATE ON CompanyRoles
+CREATE TRIGGER update_projectroles_updated_at
+BEFORE UPDATE ON ProjectRoles
 FOR EACH ROW
 EXECUTE PROCEDURE update_updated_at_column();
 
-CREATE TRIGGER update_usercompanyroles_updated_at
-BEFORE UPDATE ON UserCompanyRoles
+CREATE TRIGGER update_userprojectroles_updated_at
+BEFORE UPDATE ON UserProjectRoles
 FOR EACH ROW
 EXECUTE PROCEDURE update_updated_at_column();
 
@@ -123,12 +122,12 @@ EXECUTE PROCEDURE update_updated_at_column();
 CREATE INDEX idx_passwords_user_id ON Passwords(user_id);
 CREATE INDEX idx_userglobalroles_user_id ON UserGlobalRoles(user_id);
 CREATE INDEX idx_userglobalroles_global_role_id ON UserGlobalRoles(global_role_id);
-CREATE INDEX idx_usercompanies_user_id ON UserCompanies(user_id);
-CREATE INDEX idx_usercompanies_company_id ON UserCompanies(company_id);
-CREATE INDEX idx_companyroles_company_id ON CompanyRoles(company_id);
-CREATE INDEX idx_usercompanyroles_user_id ON UserCompanyRoles(user_id);
-CREATE INDEX idx_usercompanyroles_company_id ON UserCompanyRoles(company_id);
-CREATE INDEX idx_usercompanyroles_company_role_id ON UserCompanyRoles(company_role_id);
+CREATE INDEX idx_userprojects_user_id ON UserProjects(user_id);
+CREATE INDEX idx_userprojects_project_id ON UserProjects(project_id);
+CREATE INDEX idx_projectroles_project_id ON ProjectRoles(project_id);
+CREATE INDEX idx_userprojectroles_user_id ON UserProjectRoles(user_id);
+CREATE INDEX idx_userprojectroles_project_id ON UserProjectRoles(project_id);
+CREATE INDEX idx_userprojectroles_project_role_id ON UserProjectRoles(project_role_id);
 
 -- 12. Character Encoding
 -- Ensure that the database supports UTF-8 encoding.

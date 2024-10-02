@@ -2,11 +2,11 @@
 
 pub mod prelude;
 
-pub mod companies;
-pub mod company_roles;
 pub mod global_roles;
 pub mod passwords;
-pub mod user_companies;
-pub mod user_company_roles;
+pub mod project_roles;
+pub mod projects;
 pub mod user_global_roles;
+pub mod user_project_roles;
+pub mod user_projects;
 pub mod users;
