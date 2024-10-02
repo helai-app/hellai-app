@@ -229,7 +229,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 7. ProjectRoles (Define roles within a project)
+        // 7. ProjectRoles (Define roles within a project without project_id)
         manager
             .create_table(
                 Table::create()
@@ -242,8 +242,12 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .auto_increment(),
                     )
-                    .col(ColumnDef::new(ProjectRoles::ProjectId).integer().not_null())
-                    .col(ColumnDef::new(ProjectRoles::Name).string().not_null())
+                    .col(
+                        ColumnDef::new(ProjectRoles::Name)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(ProjectRoles::Description).string())
                     .col(
                         ColumnDef::new(ProjectRoles::CreatedAt)
@@ -256,20 +260,6 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_projectroles_project")
-                            .from(ProjectRoles::Table, ProjectRoles::ProjectId)
-                            .to(Projects::Table, Projects::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_projectroles_project_name")
-                            .col(ProjectRoles::ProjectId)
-                            .col(ProjectRoles::Name)
-                            .unique(),
                     )
                     .to_owned(),
             )
@@ -441,7 +431,6 @@ enum UserProjects {
 enum ProjectRoles {
     Table,
     Id,
-    ProjectId,
     Name,
     Description,
     CreatedAt,

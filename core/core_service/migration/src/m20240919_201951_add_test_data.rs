@@ -48,10 +48,9 @@ impl MigrationTrait for Migration {
         };
 
         // 3. Insert test user: admin
-        // Replace 'service::password_validation::hash_password' with your actual password hashing function
         let password_data = service::password_validation::hash_password("Admin123")
             .expect("Can't get hash password");
-        let password_hash = password_data.0; // Actual hash
+        let password_hash = password_data.0;
 
         // Insert user into Users table and retrieve the generated user ID
         let user_id: i32 = {
@@ -112,32 +111,35 @@ impl MigrationTrait for Migration {
         ))
         .await?;
 
-        // 8. Insert ProjectRoles: admin, user
+        // 8. Insert ProjectRoles: owner, administrator, user, guest
         txn.execute(Statement::from_sql_and_values(
             DbBackend::Postgres,
             r#"
-            INSERT INTO "project_roles" ("project_id", "name", "description") VALUES
-                ($1, $2, $3), ($1, $4, $5)
+            INSERT INTO "project_roles" ("name", "description") VALUES
+                ($1, $2), ($3, $4), ($5, $6), ($7, $8)
             "#,
             vec![
-                project_id.into(),
-                "admin".into(),
+                ProjectRole::Owner.to_string().into(),
+                "Project owner with full access".into(),
+                ProjectRole::Administrator.to_string().into(),
                 "Project administrator".into(),
-                "user".into(),
+                ProjectRole::User.to_string().into(),
                 "Project regular user".into(),
+                ProjectRole::Guest.to_string().into(),
+                "Guest user with limited access".into(),
             ],
         ))
         .await?;
 
-        // 9. Retrieve the project role ID for 'admin'
+        // 9. Retrieve the project role ID for 'owner'
         let project_role_id: i32 = {
             let result = txn
                 .query_one(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     r#"
-                    SELECT "id" FROM "project_roles" WHERE "project_id" = $1 AND "name" = $2
+                    SELECT "id" FROM "project_roles" WHERE "name" = $1
                     "#,
-                    vec![project_id.into(), "admin".into()],
+                    vec![ProjectRole::Owner.to_string().into()],
                 ))
                 .await?
                 .ok_or(DbErr::Custom(
@@ -146,7 +148,7 @@ impl MigrationTrait for Migration {
             result.try_get("", "id")?
         };
 
-        // 10. Assign project role 'admin' to the user
+        // 10. Assign project role 'owner' to the user
         txn.execute(Statement::from_sql_and_values(
             DbBackend::Postgres,
             r#"
@@ -163,8 +165,25 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
-        // Since we're focusing on the data insertion, and your table drop code remains the same,
-        // we can leave this method unchanged.
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+enum ProjectRole {
+    Owner = 0,
+    Administrator = 1,
+    User = 2,
+    Guest = 3,
+}
+
+impl ToString for ProjectRole {
+    fn to_string(&self) -> String {
+        match self {
+            ProjectRole::Owner => "owner".to_string(),
+            ProjectRole::Administrator => "administrator".to_string(),
+            ProjectRole::User => "user".to_string(),
+            ProjectRole::Guest => "guest".to_string(),
+        }
     }
 }

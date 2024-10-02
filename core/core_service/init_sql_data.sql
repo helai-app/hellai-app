@@ -56,13 +56,10 @@ CREATE TABLE UserProjects (
 -- 7. ProjectRoles (All roles within a project)
 CREATE TABLE ProjectRoles (
     id SERIAL PRIMARY KEY,
-    project_id INTEGER NOT NULL,
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) UNIQUE NOT NULL,
     description VARCHAR(255),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (project_id) REFERENCES Projects(id) ON DELETE CASCADE,
-    UNIQUE (project_id, name)
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 8. UserProjectRoles (User roles in a project)
@@ -124,7 +121,6 @@ CREATE INDEX idx_userglobalroles_user_id ON UserGlobalRoles(user_id);
 CREATE INDEX idx_userglobalroles_global_role_id ON UserGlobalRoles(global_role_id);
 CREATE INDEX idx_userprojects_user_id ON UserProjects(user_id);
 CREATE INDEX idx_userprojects_project_id ON UserProjects(project_id);
-CREATE INDEX idx_projectroles_project_id ON ProjectRoles(project_id);
 CREATE INDEX idx_userprojectroles_user_id ON UserProjectRoles(user_id);
 CREATE INDEX idx_userprojectroles_project_id ON UserProjectRoles(project_id);
 CREATE INDEX idx_userprojectroles_project_role_id ON UserProjectRoles(project_role_id);
