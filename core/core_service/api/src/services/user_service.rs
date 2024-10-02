@@ -139,7 +139,11 @@ impl UserService for MyServer {
         &self,
         request: Request<RefreshSessionTokenRequest>,
     ) -> Result<Response<TokenResponse>, Status> {
-        let refresh_token: String = request.into_inner().refresh_token;
+        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
+
+        let request: RefreshSessionTokenRequest = request.into_inner();
+
+        let refresh_token: String = request.refresh_token;
 
         let request_claims = RefreshClaims::from_token(refresh_token)?;
 

@@ -51,6 +51,8 @@ pub struct RefreshClaims {
     pub sub: i64,
     // Date when token expires
     exp: usize,
+
+    is_refresh: bool,
 }
 
 impl RefreshClaims {
@@ -60,6 +62,7 @@ impl RefreshClaims {
         RefreshClaims {
             exp: now + REFRESH_TOKEN_EXP,
             sub,
+            is_refresh: true,
         }
     }
 
