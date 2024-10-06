@@ -18,11 +18,11 @@ service ProjectsService {
 
   // RPC for adding a user to a project
   rpc AddUserToProject(UserProjectModificationRequest)
-      returns (ProjectUsersResponse) {}
+      returns (ProjectUserInfoResponse) {}
 
   // RPC for removing a user from a project
   rpc RemoveUserFromProject(UserProjectModificationRequest)
-      returns (ProjectUsersResponse) {}
+      returns (ProjectUserInfoResponse) {}
 
   // RPC for deleting a project
   rpc DeleteProject(DeleteProjectRequest) returns (StatusResponse) {}
@@ -43,14 +43,10 @@ message UserProjectModificationRequest {
   int32 project_id = 2;
 }
 
-// Response message containing the list of users in a project
-message ProjectUsersResponse { repeated ProjectUserInfo users = 1; }
-
 // Information about a user in a project
-message ProjectUserInfo {
+message ProjectUserInfoResponse {
   int32 user_id = 1;
-  string user_name = 2;
-  ProjectRole user_role = 3;
+  ProjectRole user_role = 2;
 }
 
 // Response message indicating the success of an operation
