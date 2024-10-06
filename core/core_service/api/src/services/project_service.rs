@@ -72,9 +72,39 @@ impl ProjectsService for MyServer {
         request: Request<DeleteProjectRequest>,
     ) -> Result<Response<StatusResponse>, Status> {
         event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
+        // Check if user auth and get his id
         let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        let conn = &self.connection;
+
+        let request = request.into_inner();
+
+        // Check that user have permision Owner lvl
+        let user_role_in_project = ProjectQuery::get_user_role_in_project(
+            conn,
+            request.project_id,
+            user_id_from_token as i32,
+        )
+        .await?;
+
+        match user_role_in_project {
+            Some(user_role_in_project) => {
+                if user_role_in_project.project_role_id != 1 {
+                    return Err(Status::permission_denied("insufficient_rights"));
+                }
+            }
+            None => return Err(Status::permission_denied("insufficient_rights")),
+        }
+
+        ProjectQuery::delete_project(conn, request.project_id).await?;
+
         println!("user_id_from_token: {}", user_id_from_token);
-        todo!()
+
+        let response = Response::new(StatusResponse { success: true });
+
+        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
+
+        Ok(response)
     }
 
     async fn remove_user_from_project(

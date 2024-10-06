@@ -242,4 +242,19 @@ impl ProjectQuery {
 
         Ok(())
     }
+
+    pub async fn get_user_role_in_project(
+        db: &DbConn,
+        project_id: i32,
+        user_id: i32,
+    ) -> Result<Option<user_project_roles::Model>, CoreErrors> {
+        // Delete the role assignment from user_project_roles
+        let user_role = UserProjectRoles::find()
+            .filter(user_project_roles::Column::UserId.eq(user_id))
+            .filter(user_project_roles::Column::ProjectId.eq(project_id))
+            .one(db)
+            .await?;
+
+        Ok(user_role)
+    }
 }
