@@ -33,6 +33,16 @@ impl SessionClaims {
         }
     }
 
+    pub fn from_token(token: String) -> Result<SessionClaims, CoreErrors> {
+        let token = decode::<SessionClaims>(
+            &token,
+            &DecodingKey::from_secret(JWT_SECRET.as_ref()),
+            &Validation::default(),
+        )?;
+
+        Ok(token.claims)
+    }
+
     pub fn into_token(&self) -> Result<String, CoreErrors> {
         let token = encode(
             &Header::default(),
