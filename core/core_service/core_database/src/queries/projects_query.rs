@@ -1,7 +1,8 @@
 use core_error::core_errors::CoreErrors;
+
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DbBackend, DbConn, EntityTrait, FromQueryResult,
-    IntoActiveModel, QueryFilter, Set, Statement,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DbBackend, DbConn,
+    EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Set, Statement,
 };
 
 use crate::entity::prelude::{Projects, UserProjectRoles};
@@ -91,25 +92,62 @@ impl ProjectQuery {
         Ok(user_projects)
     }
 
-    /// Creates a new project with the given name.
+    /// Creates a new project with the given name and assigns the creator as the owner.
     ///
     /// # Arguments
     ///
     /// * `db` - The database connection.
     /// * `name` - The name of the new project.
+    /// * `user_id` - The ID of the user creating the project, who will be assigned the owner role.
     ///
     /// # Returns
     ///
     /// The created `projects::Model`, or an error of type `CoreErrors`.
-    pub async fn create_project(db: &DbConn, name: String) -> Result<projects::Model, CoreErrors> {
-        let new_project = projects::ActiveModel {
-            name: Set(name),
-            ..Default::default()
+    pub async fn create_project(
+        db: &DbConn,
+        name: String,
+        user_id: i32,
+    ) -> Result<projects::Model, CoreErrors> {
+        // Define the SQL statement using Common Table Expressions (CTEs)
+        let sql = r#"
+        WITH new_project AS (
+            INSERT INTO projects (name)
+            VALUES ($1)
+            RETURNING id, name
+        ),
+        inserted_user_project_role AS (
+            INSERT INTO user_project_roles (user_id, project_id, project_role_id)
+            SELECT $2, id, 1
+            FROM new_project
+            RETURNING id
+        )
+        SELECT id, name
+        FROM new_project;
+    "#;
+
+        // Prepare the SQL statement with parameters
+        let stmt = Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            sql,
+            vec![name.into(), user_id.into()],
+        );
+
+        // Execute the SQL statement and get the result
+        let project_result = db.query_one(stmt).await?;
+
+        // Extract the project details from the query result
+        let project = if let Some(row) = project_result {
+            let id: i32 = row.try_get("", "id")?;
+            let name: String = row.try_get("", "name")?;
+
+            projects::Model { id, name }
+        } else {
+            return Err(CoreErrors::DatabaseServiceError(
+                "failed_create_project".to_string(),
+            ));
         };
 
-        let new_project = new_project.insert(db).await?;
-
-        Ok(new_project)
+        Ok(project)
     }
 
     /// Deletes a project by its ID.
