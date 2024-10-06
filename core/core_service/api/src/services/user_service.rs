@@ -1,11 +1,11 @@
 use core_database::queries::{
-    company_query::{CompanyQuery, UserCompany},
+    projects_query::{ProjectQuery, UserProject},
     user_query::UserQuery,
 };
 use core_debugger::tracing::{event, Level};
 use helai_api_core_service::{
     user_service_server::UserService, AuthenticateWithPasswordRequest, RefreshSessionTokenRequest,
-    RegisterUserRequest, TokenResponse, UserCompanyResponse, UserCompanyRoleResponse, UserResponse,
+    RegisterUserRequest, TokenResponse, UserResponse,
 };
 
 use middleware::auth_token::{RefreshClaims, SessionClaims};
@@ -14,7 +14,9 @@ use service::password_validation::{hash_password, verify_hash_password};
 use tonic::{Request, Response, Status};
 
 use crate::{
-    helai_api_core_service::{self, NewUserResponse},
+    helai_api_core_service::{
+        self, NewUserResponse, UserProjectRoleResponse, UserProjectsResponse,
+    },
     middleware::{self, validators},
     MyServer,
 };
@@ -56,15 +58,15 @@ impl UserService for MyServer {
         let refresh_token = refresh_claims.into_token()?;
 
         // Get User projects info
-        let user_companies: Vec<UserCompany> =
-            CompanyQuery::get_user_companies_with_roles(conn, user.id).await?;
+        let user_companies: Vec<UserProject> =
+            ProjectQuery::get_user_projects_with_roles(conn, user.id).await?;
 
-        let user_companies_response: Vec<UserCompanyResponse> = user_companies
+        let user_projects_response: Vec<UserProjectsResponse> = user_companies
             .into_iter()
-            .map(|c| UserCompanyResponse {
-                company_id: c.id,
-                company_name: c.name,
-                user_role: Some(UserCompanyRoleResponse {
+            .map(|c| UserProjectsResponse {
+                project_id: c.id,
+                project_name: c.name,
+                user_role: Some(UserProjectRoleResponse {
                     role_id: c.user_role.id,
                     name: c.user_role.name,
                     description: c.user_role.description.unwrap_or(String::new()),
@@ -78,7 +80,7 @@ impl UserService for MyServer {
             email: user.email,
             session_token: session_token,
             refresh_token: refresh_token,
-            user_companies: user_companies_response,
+            user_projects: user_projects_response,
         };
 
         let response = Response::new(reply);

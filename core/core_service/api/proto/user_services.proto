@@ -40,8 +40,8 @@ message UserResponse {
   optional string email = 2; // Email of the user
   string session_token = 3;  // New session token for authenticated access
   string refresh_token = 4;  // New refresh token for session renewal
-  repeated UserCompanyResponse user_companies =
-      5; // List of companies associated with the user
+  repeated UserProjectsResponse user_projects =
+      5; // List of projects associated with the user
 }
 
 message NewUserResponse {
@@ -51,16 +51,16 @@ message NewUserResponse {
   string refresh_token = 4;  // New refresh token for session renewal
 }
 
-// Message representing a company associated with the user
-message UserCompanyResponse {
-  int32 company_id = 1;                  // Unique identifier for the company
-  string company_name = 2;               // Name of the company
-  UserCompanyRoleResponse user_role = 3; // Roles the user holds in this company
+// Message representing a project associated with the user
+message UserProjectsResponse {
+  int32 project_id = 1;                  // Unique identifier for the project
+  string project_name = 2;               // Name of the project
+  UserProjectRoleResponse user_role = 3; // Roles the user holds in this project
 }
 
-// Message representing a role the user has in a company
-message UserCompanyRoleResponse {
-  int32 role_id = 1; // Unique identifier for the user-company-role relationship
+// Message representing a role the user has in a project
+message UserProjectRoleResponse {
+  int32 role_id = 1; // Unique identifier for the user-project-role relationship
   string name = 2;   // Name of the role (e.g., "Manager", "Developer")
   string description = 3; // Description of the role's responsibilities
 }
