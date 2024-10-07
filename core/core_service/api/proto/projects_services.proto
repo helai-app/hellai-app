@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package helai_api_core_service;
+
+// Enum representing the different roles a user can have in a project
+enum ProjectRole {
+  PROJECT_ROLE_OWNER = 0;
+  PROJECT_ROLE_ADMINISTRATOR = 1;
+  PROJECT_ROLE_USER = 2;
+  PROJECT_ROLE_GUEST = 3;
+}
+
+// Service handling project-related operations
+service ProjectsService {
+
+  // RPC for creating a new project
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse) {}
+
+  // RPC for adding a user to a project
+  rpc AddUserToProject(UserProjectModificationRequest)
+      returns (ProjectUserInfoResponse) {}
+
+  // RPC for removing a user from a project
+  rpc RemoveUserFromProject(UserProjectModificationRequest)
+      returns (StatusResponse) {}
+
+  // RPC for deleting a project
+  rpc DeleteProject(DeleteProjectRequest) returns (StatusResponse) {}
+}
+
+// Request message for creating a new project
+message CreateProjectRequest { string project_name = 1; }
+
+// Response message for creating a new project
+message CreateProjectResponse {
+  int32 project_id = 1;
+  string project_name = 2;
+}
+
+// Request message for adding or removing a user from a project
+message UserProjectModificationRequest {
+  int32 user_id = 1;
+  int32 project_id = 2;
+}
+
+// Information about a user in a project
+message ProjectUserInfoResponse {
+  int32 user_id = 1;
+  ProjectRole user_role = 2;
+}
+
+// Response message indicating the success of an operation
+message StatusResponse { bool success = 1; }
+
+// Request message for deleting a project
+message DeleteProjectRequest { int32 project_id = 1; }

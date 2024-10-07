@@ -7,3 +7,7 @@
 
 # OSX minutia
 .DS_Store
+
+
+# Rust build data
+**/target

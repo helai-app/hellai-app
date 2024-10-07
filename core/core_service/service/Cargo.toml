@@ -1,0 +1,10 @@
+[package]
+name = "service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+argon2 = { workspace = true }
+lazy_static = {workspace = true}
+
+core_error = {path = "../core_error"}

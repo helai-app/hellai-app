@@ -1,0 +1,25 @@
+[package]
+name = "api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tonic = { workspace = true }
+prost = "0.13"
+tokio = { workspace = true }
+sea-orm = { workspace = true }
+jsonwebtoken = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }
+lazy_static = { workspace = true }
+colored = { workspace = true }
+
+tower = { workspace = true }
+
+core_error = { path = "../core_error" }
+core_database = { path = "../core_database" }
+migration = { path = "../migration" }
+service = { path = "../service" }
+core_debugger = { path = "../core_debugger" }
+
+[build-dependencies]
+tonic-build = "0.12"
