@@ -115,11 +115,28 @@ impl ProjectsService for MyServer {
     async fn remove_user_from_project(
         &self,
         request: Request<UserProjectModificationRequest>,
-    ) -> Result<Response<ProjectUserInfoResponse>, Status> {
+    ) -> Result<Response<StatusResponse>, Status> {
         event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
+        // Check if user auth and get his id
         let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
-        println!("user_id_from_token: {}", user_id_from_token);
-        todo!()
+
+        let conn = &self.connection;
+
+        let request = request.into_inner();
+
+        let admin_id = user_id_from_token as i32;
+        let project_id = request.project_id;
+        let user_id = request.user_id;
+
+        check_project_permision(conn, admin_id, project_id).await?;
+
+        ProjectQuery::remove_user_from_project(conn, project_id, user_id).await?;
+
+        let response = Response::new(StatusResponse { success: true });
+
+        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
+
+        Ok(response)
     }
 }
 

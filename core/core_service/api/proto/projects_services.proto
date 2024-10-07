@@ -22,7 +22,7 @@ service ProjectsService {
 
   // RPC for removing a user from a project
   rpc RemoveUserFromProject(UserProjectModificationRequest)
-      returns (ProjectUserInfoResponse) {}
+      returns (StatusResponse) {}
 
   // RPC for deleting a project
   rpc DeleteProject(DeleteProjectRequest) returns (StatusResponse) {}
