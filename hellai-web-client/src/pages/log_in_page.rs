@@ -1,9 +1,18 @@
 #![allow(non_snake_case)]
 
 use dioxus::prelude::*;
+use dioxus_logger::tracing::{info, trace};
+
+use crate::utilities::cookie_manager::WebClientCookieManager;
 
 #[component]
 pub fn LogInElement() -> Element {
+    // WebClientCookieManager::set_cookie("my_key", "my_value", true, false, None);
+
+    let my_key_cookie = WebClientCookieManager::get_cookie("my_key");
+
+    info!("my_key_cookie: {:?}", my_key_cookie);
+
     rsx! {
         div {
             class: "container main-body",

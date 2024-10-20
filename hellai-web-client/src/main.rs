@@ -6,6 +6,7 @@ use routing::SystemRoute;
 
 mod pages;
 mod routing;
+mod utilities;
 
 // #[derive(Clone, Routable, Debug, PartialEq)]
 // enum Route {
