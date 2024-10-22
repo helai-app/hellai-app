@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package helai_api_core_service;
+
+// Service handling user-related operations
+service UserService {
+  // Authenticate using login and password, returns user details with tokens
+  rpc AuthenticateWithPassword(AuthenticateWithPasswordRequest)
+      returns (UserResponse) {}
+
+  // Register a new user with login, password, and email, returns user details
+  rpc RegisterUser(RegisterUserRequest) returns (NewUserResponse) {}
+
+  // Refresh the session token using a refresh token, returns updated user
+  // details
+  rpc RefreshSessionToken(RefreshSessionTokenRequest) returns (TokenResponse) {}
+}
+
+// Request message for authentication with password
+message AuthenticateWithPasswordRequest {
+  string login = 1;    // The user's login or username
+  string password = 2; // The user's password
+}
+
+// Request message for user registration
+message RegisterUserRequest {
+  string login = 1;          // Desired login or username for the new user
+  string password = 2;       // Password for the new user
+  optional string email = 3; // Email address of the new user
+}
+
+// Request message to refresh the session token
+message RefreshSessionTokenRequest {
+  string refresh_token = 1; // The refresh token provided during authentication
+}
+
+// Response message containing user details and tokens
+message UserResponse {
+  int32 user_id = 1;         // Unique identifier for the user
+  optional string email = 2; // Email of the user
+  string session_token = 3;  // New session token for authenticated access
+  string refresh_token = 4;  // New refresh token for session renewal
+  repeated UserProjectsResponse user_projects =
+      5; // List of projects associated with the user
+}
+
+message NewUserResponse {
+  int32 user_id = 1;         // Unique identifier for the user
+  optional string email = 2; // Email of the user
+  string session_token = 3;  // New session token for authenticated access
+  string refresh_token = 4;  // New refresh token for session renewal
+}
+
+// Message representing a project associated with the user
+message UserProjectsResponse {
+  int32 project_id = 1;                  // Unique identifier for the project
+  string project_name = 2;               // Name of the project
+  UserProjectRoleResponse user_role = 3; // Roles the user holds in this project
+}
+
+// Message representing a role the user has in a project
+message UserProjectRoleResponse {
+  int32 role_id = 1; // Unique identifier for the user-project-role relationship
+  string name = 2;   // Name of the role (e.g., "Manager", "Developer")
+  string description = 3; // Description of the role's responsibilities
+}
+// Response message containing only a new session token
+message TokenResponse { string session_token = 1; }

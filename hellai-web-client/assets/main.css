@@ -398,3 +398,50 @@
  .footer-navigation a:hover {
      text-decoration: underline;
  }
+
+ /* Button styles */
+ .form-button {
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     /* Center content horizontally */
+     position: relative;
+     padding: 10px 20px;
+     font-size: 16px;
+     background-color: #546FFF;
+     height: 45px;
+     /* Set a fixed height for the button */
+     color: white;
+     border: none;
+     cursor: pointer;
+ }
+
+ /* Spinner styles */
+ .spinner {
+     border: 4px solid rgba(255, 255, 255, 0.3);
+     /* Light border */
+     border-top: 4px solid #ffffff;
+     /* White spinner color */
+     border-radius: 50%;
+     width: 20px;
+     height: 20px;
+     animation: spin 1s linear infinite;
+ }
+
+ /* Spinner centering */
+ button.form-button .spinner {
+     top: 50%;
+     left: 50%;
+     transform: translate(-50%, -50%);
+     /* Center spinner inside button */
+ }
+
+ @keyframes spin {
+     0% {
+         transform: rotate(0deg);
+     }
+
+     100% {
+         transform: rotate(360deg);
+     }
+ }
