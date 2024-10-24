@@ -34,7 +34,7 @@ sea-orm = { version = "1.0.0-rc.5", features = [
     "with-uuid",
 ] }
 jsonwebtoken = "9.3"
-tonic = "0.12"
+tonic = "0.12.3"
 lazy_static = "1.5"
 chrono = "0.4"
 tower = "0.5"

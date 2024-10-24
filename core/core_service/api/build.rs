@@ -5,7 +5,7 @@ fn main() {
 
     tonic_build::configure()
         .build_server(true)
-        .compile(
+        .compile_protos(
             &[_user_proto_file, _user_proto_file, _projects_proto_file],
             &["."],
         )
