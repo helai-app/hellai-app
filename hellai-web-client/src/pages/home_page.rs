@@ -6,7 +6,10 @@ use crate::utilities::cookie_manager::WebClientCookieManager;
 
 #[component]
 pub fn HomeElement() -> Element {
-    if WebClientCookieManager::get_cookie("my_key").is_none() {
+    let session_t = WebClientCookieManager::get_cookie("session_t");
+    let refresh_t = WebClientCookieManager::get_cookie("refresh_t");
+
+    if session_t.is_none() && refresh_t.is_none() {
         let navigator = use_navigator();
         navigator.replace("/login");
     }

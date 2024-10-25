@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 
 use dioxus::prelude::*;
-use dioxus_logger::tracing::info;
 
 // use helai_api_core_service::user_service_client::UserServiceClient;
 
@@ -21,12 +20,6 @@ use tonic_web_wasm_client::Client;
 pub fn LogInElement() -> Element {
     use_context_provider(|| Signal::new(LogInPageState::Unset));
     let toast = use_context_provider(|| Signal::new(ToastManager::default()));
-
-    // WebClientCookieManager::set_cookie("my_key", "my_value", true, false, None);
-
-    let my_key_cookie = WebClientCookieManager::get_cookie("my_key");
-
-    info!("my_key_cookie: {:?}", my_key_cookie);
 
     rsx! {
         ToastFrame { manager: toast }
@@ -162,21 +155,21 @@ pub fn PrimaryButton() -> Element {
                 _ => false
             },
             onclick: move |_| async move {
-                info!("Start on click");
 
                 *preview_state.write() = LogInPageState::Loading;
 
-                info!("State: {:?}", preview_state());
-
                 let auth_result = try_auth("admin".to_string(), "Admin123".to_string()).await;
-                info!("Response: {:?}", auth_result );
 
                 match auth_result {
-                    Ok(_) =>  *preview_state.write() = LogInPageState::Success,
+                    Ok(_) =>  {
+                        let navigator = use_navigator();
+                        navigator.replace("/");
+                        *preview_state.write() = LogInPageState::Success
+                    },
                     Err(err_message) =>  {
                         let _ = toast.write().popup(ToastInfo::error(&err_message, "Error"));
 
-                        *preview_state.write() = LogInPageState::Failed(err_message);
+                        *preview_state.write() = LogInPageState::Failed;
                     },
                 }
             },
@@ -198,10 +191,10 @@ enum LogInPageState {
     Unset,
     Loading,
     Success,
-    Failed(String),
+    Failed,
 }
 
-async fn try_auth(login: String, password: String) -> Result<String, String> {
+async fn try_auth(login: String, password: String) -> Result<(), String> {
     let base_url = "http://0.0.0.0:50052".to_string(); // URL of the gRPC-web server
     let mut query_client = UserServiceClient::new(Client::new(base_url));
     let request = tonic::Request::new(AuthenticateWithPasswordRequest {
@@ -214,7 +207,9 @@ async fn try_auth(login: String, password: String) -> Result<String, String> {
     match response {
         Ok(res) => {
             let res = res.into_inner();
-            Ok(res.session_token)
+            WebClientCookieManager::set_cookie("session_t", &res.session_token, true, false, None);
+            WebClientCookieManager::set_cookie("refresh_t", &res.refresh_token, true, false, None);
+            Ok(())
         }
         Err(_) => Err("Failed to get response".to_string()),
     }
