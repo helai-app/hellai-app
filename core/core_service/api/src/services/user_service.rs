@@ -15,9 +15,10 @@ use tonic::{Request, Response, Status};
 
 use crate::{
     helai_api_core_service::{
-        self, NewUserResponse, UserProjectRoleResponse, UserProjectsResponse,
+        self, ClearUserResponse, EmptyGetUserRequest, NewUserResponse, UserProjectRoleResponse,
+        UserProjectsResponse,
     },
-    middleware::{self, validators},
+    middleware::{self, interceptors, validators},
     MyServer,
 };
 
@@ -80,6 +81,53 @@ impl UserService for MyServer {
             email: user.email,
             session_token: session_token,
             refresh_token: refresh_token,
+            user_projects: user_projects_response,
+        };
+
+        let response = Response::new(reply);
+
+        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
+        Ok(response)
+    }
+
+    async fn get_user_data(
+        &self,
+        request: Request<EmptyGetUserRequest>,
+    ) -> Result<Response<ClearUserResponse>, Status> {
+        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
+
+        let conn = &self.connection;
+
+        // Extract user ID from auth token in request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Get user info from bd
+        let user = match UserQuery::get_user_by_id(conn, user_id_from_token as i32).await? {
+            Some(user) => user,
+            None => return Err(Status::invalid_argument("failed_find_user")),
+        };
+
+        // Get User projects info
+        let user_companies: Vec<UserProject> =
+            ProjectQuery::get_user_projects_with_roles(conn, user.id).await?;
+
+        let user_projects_response: Vec<UserProjectsResponse> = user_companies
+            .into_iter()
+            .map(|c| UserProjectsResponse {
+                project_id: c.id,
+                project_name: c.name,
+                user_role: Some(UserProjectRoleResponse {
+                    role_id: c.user_role.id,
+                    name: c.user_role.name,
+                    description: c.user_role.description.unwrap_or(String::new()),
+                }),
+            })
+            .collect();
+
+        // Create respnse
+        let reply = ClearUserResponse {
+            user_id: user.id,
+            email: user.email,
             user_projects: user_projects_response,
         };
 
