@@ -4,12 +4,42 @@ services:
   db:
     image: postgres:17rc1
     restart: always
-    env_file:
-      - .env
+    environment:
+      POSTGRES_USER: core_service_db_admin
+      POSTGRES_PASSWORD: 123QWEasd
+      POSTGRES_DB: core_service_db
     ports:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    networks:
+      - hellai_network # Attach to the custom network
+
+  hellai_app:
+    depends_on:
+      - db
+    build:
+      context: . # Use the current directory as the build context
+      dockerfile: Dockerfile
+    ports:
+      - "50052:50052" # Map the internal gRPC port
+    volumes:
+      - .:/usr/src/hellai # Mount the current directory to the container
+      - /usr/src/hellai/target # Cache Rust build artifacts for faster rebuilds
+    env_file:
+      - .env
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      PASSWORD_SECRET_KEY: ${PASSWORD_SECRET_KEY}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    command: [ "core_service" ] # Command to run the server
+    restart: unless-stopped # Optional: restart policy
+    networks:
+      - hellai_network # Attach to the custom network
 
 volumes:
   db_data:
+
+
+networks:
+  hellai_network: # Define the custom network
