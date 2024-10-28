@@ -2,17 +2,28 @@
 
 use dioxus::prelude::*;
 
-use crate::utilities::cookie_manager::WebClientCookieManager;
+use crate::{app_state::AppState, GLOBAL_APP_STATE};
 
 #[component]
 pub fn HomeElement() -> Element {
-    let session_t = WebClientCookieManager::get_cookie("session_t");
-    let refresh_t = WebClientCookieManager::get_cookie("refresh_t");
+    let user_data = GLOBAL_APP_STATE.read();
+    let navigator = use_navigator();
 
-    if session_t.is_none() && refresh_t.is_none() {
-        let navigator = use_navigator();
-        navigator.replace("/login");
+    // Router Guard.
+    // Open splash if app is not Initial.
+    // Open login if there's no user data.
+    match &*user_data {
+        AppState::Initial => {
+            navigator.replace("/splash");
+            return rsx! {""}; // Return early after navigation
+        }
+        AppState::Auth(user) => {
+            // No need to create a mutable variable, just borrow user
+            rsx! { "Home Page", "{user}" }
+        }
+        AppState::UnAuth => {
+            navigator.replace("/login");
+            return rsx! {""}; // Return early after navigation
+        }
     }
-
-    rsx! {"Home Page"}
 }

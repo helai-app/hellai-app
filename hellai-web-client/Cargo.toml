@@ -28,6 +28,7 @@ uuid = { version = "1.11.0", features = [
 tonic-web-wasm-client = "0.6"
 chrono = "0.4.38"
 tokio = "1.41.0"
+async-std = "1.13.0"
 gloo-timers = { version = "0.3.0", features = ["futures"] }
 getrandom = { version = "0.2", features = ["js"] }          # for uuid webasambly
 

@@ -5,11 +5,17 @@ use dioxus::prelude::*;
 // use helai_api_core_service::user_service_client::UserServiceClient;
 
 use crate::{
+    app_state::AppState,
+    app_structs::{
+        project_info::{ProjectInfo, UserProjectRole},
+        user_data::UserData,
+    },
     components::toast::{ToastFrame, ToastInfo, ToastManager},
     helai_api_core_service::{
-        user_service_client::UserServiceClient, AuthenticateWithPasswordRequest,
+        user_service_client::UserServiceClient, AuthenticateWithPasswordRequest, UserResponse,
     },
-    utilities::cookie_manager::WebClientCookieManager,
+    utilities::{constants::API_SERVER, cookie_manager::WebClientCookieManager},
+    GLOBAL_APP_STATE,
 };
 use tonic_web_wasm_client::Client;
 
@@ -160,11 +166,34 @@ pub fn PrimaryButton() -> Element {
 
                 let auth_result = try_auth("admin".to_string(), "Admin123".to_string()).await;
 
+
+
+
                 match auth_result {
-                    Ok(_) =>  {
-                        let navigator = use_navigator();
-                        navigator.replace("/");
-                        *preview_state.write() = LogInPageState::Success
+                    Ok(auth_result) =>  {
+                        // let navigator = use_navigator();
+                        // navigator.replace("/");
+                        // *preview_state.write() = LogInPageState::Success
+                        *GLOBAL_APP_STATE.write() = AppState::Auth(UserData {
+                            id: auth_result.user_id,
+                            email: auth_result.email,
+                            projects: auth_result
+                                .user_projects
+                                .into_iter()
+                                .map(|project| {
+                                    let user_role = project.user_role.expect("Can't be None");
+                                    ProjectInfo {
+                                        id: project.project_id,
+                                        name: project.project_name,
+                                        role: UserProjectRole {
+                                            id: user_role.role_id,
+                                            name:user_role.name,
+                                            description: user_role.description,
+                                        },
+                                    }
+                                })
+                                .collect(),
+                        })
                     },
                     Err(err_message) =>  {
                         let _ = toast.write().popup(ToastInfo::error(&err_message, "Error"));
@@ -194,8 +223,8 @@ enum LogInPageState {
     Failed,
 }
 
-async fn try_auth(login: String, password: String) -> Result<(), String> {
-    let base_url = "http://0.0.0.0:50052".to_string(); // URL of the gRPC-web server
+async fn try_auth(login: String, password: String) -> Result<UserResponse, String> {
+    let base_url = API_SERVER.to_string(); // URL of the gRPC-web server
     let mut query_client = UserServiceClient::new(Client::new(base_url));
     let request = tonic::Request::new(AuthenticateWithPasswordRequest {
         login: login.into(),
@@ -209,7 +238,8 @@ async fn try_auth(login: String, password: String) -> Result<(), String> {
             let res = res.into_inner();
             WebClientCookieManager::set_cookie("session_t", &res.session_token, true, false, None);
             WebClientCookieManager::set_cookie("refresh_t", &res.refresh_token, true, false, None);
-            Ok(())
+
+            Ok(res)
         }
         Err(_) => Err("Failed to get response".to_string()),
     }
