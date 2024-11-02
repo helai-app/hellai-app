@@ -1,0 +1,447 @@
+ /* ========== CSS VARIABLES ========== */
+ :root {
+     /* Color Pallet */
+     --primary-500: #546FFF;
+     --secondary-100: #DFE1F3;
+     --secondary-200: #C2C6E8;
+     --secondary-300: #8E92BC;
+     --secondary-500: #141522;
+     --secondary-600: #0E0F1D;
+
+     /* Text and Label Colors */
+     --label-color: var(--secondary-600);
+     --input-entered-color: var(--secondary-600);
+     --input-placeholder-color: var(--secondary-600);
+     --gray-700: #2D3748;
+     --input-text-color: #A0AEC0;
+     /* Placeholder and input text color */
+
+     /* Border and Background Colors */
+     --input-border-color: var(--secondary-100);
+     /* Updated border color from Figma */
+     --input-bg-color: #FFFFFF;
+     /* Background color for input fields */
+     --hover-color: #455ed6;
+     --body-bg-color: #f5f5f5;
+
+     /* Font */
+     --font-family: 'Inter', sans-serif;
+ }
+
+ /* ========== GLOBAL STYLES ========== */
+ * {
+     box-sizing: border-box;
+ }
+
+ #main {
+     display: flex;
+     flex-direction: column;
+     min-height: 100vh;
+     position: relative;
+ }
+
+ body {
+     font-family: var(--font-family);
+     margin: 0;
+     background-color: var(--body-bg-color);
+     display: flex;
+     flex-direction: column;
+     height: 100vh;
+ }
+
+ .main-body {
+     flex: 1 0 auto;
+ }
+
+ /* ========== LAYOUT ========== */
+ .container {
+     max-width: 1050px;
+     padding-inline: 25px;
+     margin: 0 auto;
+     width: 100%;
+ }
+
+ /* ========== FORM CONTAINER STYLES ========== */
+ .form-container {
+     max-width: 360px;
+     display: flex;
+     flex-direction: column;
+     min-height: 75vh;
+     justify-content: center;
+     margin: 0;
+ }
+
+ .form-header p {
+     /* Text styling */
+     font-style: normal;
+     font-weight: 700;
+     /* Bold */
+     font-size: 14px;
+     line-height: 150%;
+     /* or 21px */
+     letter-spacing: -0.02em;
+
+     /* Color */
+     color: var(--secondary-300);
+     /* #8E92BC */
+
+     /* Additional spacing if needed */
+     margin: 0;
+     padding-bottom: 36px;
+     text-align: left;
+     align-self: start;
+ }
+
+ .form-header h1 {
+     /* Text styling */
+     font-style: normal;
+     font-weight: 700;
+     /* Bold */
+     font-size: 32px;
+     line-height: 150%;
+     /* or 48px */
+     letter-spacing: -0.03em;
+
+     /* Color */
+     color: var(--secondary-500);
+     /* #141522 */
+
+     /* Additional spacing */
+     margin: 0;
+     text-align: left;
+     align-self: start;
+ }
+
+ /* ========== FORM GROUP STYLES ========== */
+ .form-group {
+     display: flex;
+     flex-direction: column;
+     align-items: flex-start;
+     width: 100%;
+     /* Full width inside the container */
+     max-width: 400px;
+     min-width: 300px;
+
+     /* Auto layout adjustments */
+     justify-content: center;
+     position: relative;
+ }
+
+ /* Label Styling */
+ label {
+     font-style: normal;
+     font-weight: 400;
+     /* Regular */
+     font-size: 14px;
+     line-height: 150%;
+     /* 21px */
+     letter-spacing: -0.02em;
+     color: var(--label-color);
+     /* Label color from variable */
+     margin-bottom: 5px;
+ }
+
+ .input-wrapper {
+     position: relative;
+     width: 100%;
+ }
+
+ .input-wrapper input {
+     padding-right: 40px;
+ }
+
+ /* Input Field Styling */
+ input {
+     width: 100%;
+     padding: 12px;
+     border-radius: 15px;
+     border: 1px solid var(--input-border-color);
+     background-color: transparent;
+     margin-bottom: 24px;
+
+     /* Text styling for entered text */
+     font-style: normal;
+     font-weight: 400;
+     font-size: 14px;
+     line-height: 150%;
+     /* or 21px */
+     letter-spacing: -0.02em;
+     color: var(--input-entered-color, #0E0F1D);
+     /* Entered text color */
+ }
+
+ /* Placeholder styling */
+ input::placeholder {
+     color: var(--input-placeholder-color, #C2C6E8);
+     /* Placeholder text color */
+     opacity: 1;
+     /* Ensure full opacity for placeholder */
+ }
+
+ /* Autofill fix for Webkit (Chrome, Safari) */
+ input:-webkit-autofill {
+     background-color: transparent !important;
+     /* Force transparent background */
+     -webkit-box-shadow: 0 0 0px 1000px transparent inset !important;
+     box-shadow: 0 0 0px 1000px transparent inset !important;
+     -webkit-text-fill-color: var(--input-entered-color, #0E0F1D) !important;
+     /* Autofill text color */
+ }
+
+ /* Autofill fix for Mozilla Firefox */
+ input:-moz-autofill {
+     background-color: transparent !important;
+     /* Force transparent background */
+     box-shadow: 0 0 0px 1000px transparent inset !important;
+     -moz-text-fill-color: var(--input-entered-color, #0E0F1D) !important;
+     /* Autofill text color */
+ }
+
+ /* Autofill fix for Microsoft Edge */
+ input:-ms-autofill {
+     background-color: transparent !important;
+     /* Force transparent background */
+     box-shadow: 0 0 0px 1000px transparent inset !important;
+     -ms-text-fill-color: var(--input-entered-color, #0E0F1D) !important;
+     /* Autofill text color */
+ }
+
+ /* Eye Icon Styling (Optional) */
+
+ .eye-icon {
+     position: absolute;
+     top: 33%;
+     right: 12px;
+     transform: translateY(-50%);
+     width: 24px;
+     height: 24px;
+     cursor: pointer;
+ }
+
+ .eye-icon img {
+     width: 100%;
+     height: auto;
+ }
+
+ /* ========== BUTTON STYLES ========== */
+ button {
+     width: 100%;
+     max-width: 400px;
+     padding: 12px;
+     background-color: var(--primary-500);
+     border: none;
+     border-radius: 12px;
+     color: white;
+     cursor: pointer;
+     font-size: 14px;
+ }
+
+ button:hover {
+     background-color: var(--hover-color);
+ }
+
+ /* ========== SIGNUP AND LINK STYLES ========== */
+ .signup {
+     font-style: normal;
+     font-weight: 400;
+     font-size: 14px;
+     line-height: 150%;
+     margin-top: 22px;
+     text-align: center;
+ }
+
+ .signup a {
+     color: var(--primary-500);
+     text-decoration: none;
+     font-style: normal;
+     font-weight: 800;
+     font-size: 14px;
+     line-height: 150%;
+ }
+
+ a:hover {
+     text-decoration: underline;
+ }
+
+ /* ========== SWITCH TOGGLE STYLES ========== */
+ .form-options {
+     margin-bottom: 36px;
+ }
+
+ .switch {
+     position: relative;
+     display: inline-block;
+     width: 40px;
+     height: 20px;
+ }
+
+ .switch input {
+     opacity: 0;
+     width: 0;
+     height: 0;
+ }
+
+ .slider {
+     position: absolute;
+     cursor: pointer;
+     top: 0;
+     left: 0;
+     right: 0;
+     bottom: 0;
+     background-color: #ccc;
+     border-radius: 20px;
+     transition: 0.4s;
+ }
+
+ .slider:before {
+     position: absolute;
+     content: "";
+     height: 14px;
+     width: 14px;
+     left: 3px;
+     bottom: 3px;
+     background-color: white;
+     border-radius: 50%;
+     transition: 0.4s;
+ }
+
+ input:checked+.slider {
+     background-color: var(--primary-500);
+ }
+
+ input:checked+.slider:before {
+     transform: translateX(20px);
+ }
+
+ .switch-label {
+     margin-left: 10px;
+     color: var(--label-color);
+     font-size: 14px;
+     cursor: pointer;
+ }
+
+
+ /* ========== IMAGE SECTION STYLES ========== */
+ .right-image {
+     position: absolute;
+     min-height: 75vh;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     z-index: -1;
+     right: 0;
+     top: 0;
+     width: 40%;
+ }
+
+ .right-image::before {
+     content: "";
+     position: absolute;
+     top: 0;
+     right: 0;
+     width: 100%;
+     height: 100%;
+     background: url('./images/auth_bg.png') no-repeat center;
+     background-size: cover;
+     border-bottom-left-radius: 50px;
+     z-index: 0;
+ }
+
+ .logo {
+     position: relative;
+     color: white;
+     font-size: 72px;
+     margin: 0;
+     z-index: 1;
+     text-align: center;
+ }
+
+ @media (max-width: 768px) {
+     .right-image {
+         display: none;
+     }
+
+     .form-container {
+         margin: 0 auto;
+     }
+ }
+
+ /* ========== FOOTER STYLES ========== */
+ footer {
+     font-size: 12px;
+     color: var(--secondary-300);
+     flex: 0 0 auto;
+     margin-bottom: 20px;
+ }
+
+ footer .container {
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+ }
+
+ .footer-content {
+     text-align: center;
+ }
+
+ .footer-navigation {
+     display: flex;
+     justify-content: center;
+     gap: 15px;
+ }
+
+ .footer-navigation a {
+     font-size: 12px;
+     color: var(--secondary-300);
+ }
+
+ .footer-navigation a:hover {
+     text-decoration: underline;
+ }
+
+ /* Button styles */
+ .form-button {
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     /* Center content horizontally */
+     position: relative;
+     padding: 10px 20px;
+     font-size: 16px;
+     background-color: #546FFF;
+     height: 45px;
+     /* Set a fixed height for the button */
+     color: white;
+     border: none;
+     cursor: pointer;
+ }
+
+ /* Spinner styles */
+ .spinner {
+     border: 4px solid rgba(255, 255, 255, 0.3);
+     /* Light border */
+     border-top: 4px solid #ffffff;
+     /* White spinner color */
+     border-radius: 50%;
+     width: 20px;
+     height: 20px;
+     animation: spin 1s linear infinite;
+ }
+
+ /* Spinner centering */
+ button.form-button .spinner {
+     top: 50%;
+     left: 50%;
+     transform: translate(-50%, -50%);
+     /* Center spinner inside button */
+ }
+
+ @keyframes spin {
+     0% {
+         transform: rotate(0deg);
+     }
+
+     100% {
+         transform: rotate(360deg);
+     }
+ }
