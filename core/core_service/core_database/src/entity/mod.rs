@@ -2,11 +2,15 @@
 
 pub mod prelude;
 
-pub mod global_roles;
+pub mod companies;
+pub mod knowledge_base;
+pub mod notes;
 pub mod passwords;
-pub mod project_roles;
 pub mod projects;
-pub mod user_global_roles;
-pub mod user_project_roles;
-pub mod user_projects;
+pub mod roles;
+pub mod sea_orm_active_enums;
+pub mod subtasks;
+pub mod tasks;
+pub mod user_access;
+pub mod user_company;
 pub mod users;
