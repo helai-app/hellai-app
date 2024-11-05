@@ -1,3 +1,4 @@
+use extension::postgres::Type;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -6,7 +7,34 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // 1. Users
+        // Create ENUM types for access_level_type and task_status_type
+        manager
+            .create_type(
+                Type::create()
+                    .as_enum(AccessLevelType::Table)
+                    .values([
+                        AccessLevelType::Full,
+                        AccessLevelType::Limited,
+                        AccessLevelType::Restricted,
+                    ])
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_type(
+                Type::create()
+                    .as_enum(TaskStatusType::Table)
+                    .values([
+                        TaskStatusType::Pending,
+                        TaskStatusType::InProgress,
+                        TaskStatusType::Completed,
+                    ])
+                    .to_owned(),
+            )
+            .await?;
+
+        // 1. Users table
         manager
             .create_table(
                 Table::create()
@@ -20,12 +48,18 @@ impl MigrationTrait for Migration {
                             .auto_increment(),
                     )
                     .col(
-                        ColumnDef::new(Users::Username)
+                        ColumnDef::new(Users::Login)
                             .string()
                             .not_null()
                             .unique_key(),
                     )
-                    .col(ColumnDef::new(Users::Email).string().unique_key())
+                    .col(ColumnDef::new(Users::UserName).string().not_null())
+                    .col(
+                        ColumnDef::new(Users::Email)
+                            .string()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(
                         ColumnDef::new(Users::IsActive)
                             .boolean()
@@ -48,7 +82,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 2. Passwords
+        // 2. Passwords table
         manager
             .create_table(
                 Table::create()
@@ -86,75 +120,137 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // 3. GlobalRoles
         manager
-            .create_table(
-                Table::create()
-                    .table(GlobalRoles::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(GlobalRoles::Id)
-                            .integer()
-                            .not_null()
-                            .primary_key()
-                            .auto_increment(),
-                    )
-                    .col(
-                        ColumnDef::new(GlobalRoles::Name)
-                            .string()
-                            .not_null()
-                            .unique_key(),
-                    )
-                    .col(ColumnDef::new(GlobalRoles::Description).string())
+            .create_index(
+                Index::create()
+                    .name("idx_passwords_user_id")
+                    .table(Passwords::Table)
+                    .col(Passwords::UserId)
                     .to_owned(),
             )
             .await?;
 
-        // 4. UserGlobalRoles
+        // 3. Companies table
         manager
             .create_table(
                 Table::create()
-                    .table(UserGlobalRoles::Table)
+                    .table(Companies::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(UserGlobalRoles::Id)
+                        ColumnDef::new(Companies::Id)
                             .integer()
                             .not_null()
                             .primary_key()
                             .auto_increment(),
                     )
-                    .col(ColumnDef::new(UserGlobalRoles::UserId).integer().not_null())
+                    .col(ColumnDef::new(Companies::Name).string().not_null())
                     .col(
-                        ColumnDef::new(UserGlobalRoles::GlobalRoleId)
+                        ColumnDef::new(Companies::NameAlias)
+                            .string()
+                            .not_null()
+                            .unique_key()
+                            .check(Expr::cust("name_alias ~ '^[a-z]+$'")),
+                    )
+                    .col(ColumnDef::new(Companies::Description).string().null())
+                    .col(ColumnDef::new(Companies::ContactInfo).string().null())
+                    .to_owned(),
+            )
+            .await?;
+
+        // 4. Roles table
+        manager
+            .create_table(
+                Table::create()
+                    .table(Roles::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Roles::Id)
                             .integer()
+                            .not_null()
+                            .primary_key()
+                            .auto_increment(),
+                    )
+                    .col(ColumnDef::new(Roles::Name).string().not_null().unique_key())
+                    .col(ColumnDef::new(Roles::Description).string().null())
+                    .col(ColumnDef::new(Roles::ParentRoleId).integer().null())
+                    .col(
+                        ColumnDef::new(Roles::Level)
+                            .integer()
+                            .not_null()
+                            .check(Expr::cust("level > 0")),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_roles_parent_role")
+                            .from(Roles::Table, Roles::ParentRoleId)
+                            .to(Roles::Table, Roles::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        // 5. UserCompany table
+        manager
+            .create_table(
+                Table::create()
+                    .table(UserCompany::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(UserCompany::Id)
+                            .integer()
+                            .not_null()
+                            .primary_key()
+                            .auto_increment(),
+                    )
+                    .col(ColumnDef::new(UserCompany::UserId).integer().not_null())
+                    .col(ColumnDef::new(UserCompany::CompanyId).integer().not_null())
+                    .col(ColumnDef::new(UserCompany::RoleId).integer().not_null())
+                    .col(
+                        ColumnDef::new(UserCompany::AccessLevel)
+                            .enumeration(
+                                AccessLevelType::Table,
+                                [
+                                    AccessLevelType::Full,
+                                    AccessLevelType::Limited,
+                                    AccessLevelType::Restricted,
+                                ],
+                            )
                             .not_null(),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_userglobalroles_user")
-                            .from(UserGlobalRoles::Table, UserGlobalRoles::UserId)
+                            .name("fk_usercompany_user")
+                            .from(UserCompany::Table, UserCompany::UserId)
                             .to(Users::Table, Users::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_userglobalroles_globalrole")
-                            .from(UserGlobalRoles::Table, UserGlobalRoles::GlobalRoleId)
-                            .to(GlobalRoles::Table, GlobalRoles::Id)
+                            .name("fk_usercompany_company")
+                            .from(UserCompany::Table, UserCompany::CompanyId)
+                            .to(Companies::Table, Companies::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_usercompany_role")
+                            .from(UserCompany::Table, UserCompany::RoleId)
+                            .to(Roles::Table, Roles::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .index(
                         Index::create()
-                            .name("idx_userglobalroles_user_role")
-                            .col(UserGlobalRoles::UserId)
-                            .col(UserGlobalRoles::GlobalRoleId)
+                            .name("idx_usercompany_user_company")
+                            .col(UserCompany::UserId)
+                            .col(UserCompany::CompanyId)
                             .unique(),
                     )
                     .to_owned(),
             )
             .await?;
 
-        // 5. Projects
+        // 6. Projects table
         manager
             .create_table(
                 Table::create()
@@ -167,204 +263,485 @@ impl MigrationTrait for Migration {
                             .primary_key()
                             .auto_increment(),
                     )
-                    .col(ColumnDef::new(Projects::Name).string().not_null())
-                    .to_owned(),
-            )
-            .await?;
-
-        // 6. UserProjects
-        manager
-            .create_table(
-                Table::create()
-                    .table(UserProjects::Table)
-                    .if_not_exists()
+                    .col(ColumnDef::new(Projects::CompanyId).integer().not_null())
+                    .col(ColumnDef::new(Projects::Title).string().not_null())
+                    .col(ColumnDef::new(Projects::Description).string().null())
                     .col(
-                        ColumnDef::new(UserProjects::Id)
-                            .integer()
-                            .not_null()
-                            .primary_key()
-                            .auto_increment(),
+                        ColumnDef::new(Projects::DecorationColor)
+                            .string()
+                            .null()
+                            .check(Expr::cust("decoration_color ~ '^#[0-9A-Fa-f]{6}$'")),
                     )
-                    .col(ColumnDef::new(UserProjects::UserId).integer().not_null())
-                    .col(ColumnDef::new(UserProjects::ProjectId).integer().not_null())
                     .col(
-                        ColumnDef::new(UserProjects::CreatedAt)
+                        ColumnDef::new(Projects::CreatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .col(
-                        ColumnDef::new(UserProjects::UpdatedAt)
+                        ColumnDef::new(Projects::UpdatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_userprojects_user")
-                            .from(UserProjects::Table, UserProjects::UserId)
+                            .name("fk_projects_company")
+                            .from(Projects::Table, Projects::CompanyId)
+                            .to(Companies::Table, Companies::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_projects_company_id")
+                    .table(Projects::Table)
+                    .col(Projects::CompanyId)
+                    .to_owned(),
+            )
+            .await?;
+
+        // 7. Tasks table
+        manager
+            .create_table(
+                Table::create()
+                    .table(Tasks::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Tasks::Id)
+                            .integer()
+                            .not_null()
+                            .primary_key()
+                            .auto_increment(),
+                    )
+                    .col(ColumnDef::new(Tasks::ProjectId).integer().not_null())
+                    .col(ColumnDef::new(Tasks::AssignedTo).integer().null())
+                    .col(
+                        ColumnDef::new(Tasks::Status)
+                            .enumeration(
+                                TaskStatusType::Table,
+                                [
+                                    TaskStatusType::Pending,
+                                    TaskStatusType::InProgress,
+                                    TaskStatusType::Completed,
+                                ],
+                            )
+                            .not_null()
+                            .default(Expr::cust("'pending'::task_status_type")),
+                    )
+                    .col(ColumnDef::new(Tasks::Title).string().not_null())
+                    .col(ColumnDef::new(Tasks::Description).string().null())
+                    .col(ColumnDef::new(Tasks::Priority).string().null())
+                    .col(
+                        ColumnDef::new(Tasks::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(Tasks::DueDate)
+                            .timestamp_with_time_zone()
+                            .null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_tasks_project")
+                            .from(Tasks::Table, Tasks::ProjectId)
+                            .to(Projects::Table, Projects::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_tasks_assigned_to")
+                            .from(Tasks::Table, Tasks::AssignedTo)
+                            .to(Users::Table, Users::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_tasks_project_id")
+                    .table(Tasks::Table)
+                    .col(Tasks::ProjectId)
+                    .to_owned(),
+            )
+            .await?;
+
+        // 8. Subtasks table
+        manager
+            .create_table(
+                Table::create()
+                    .table(Subtasks::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Subtasks::Id)
+                            .integer()
+                            .not_null()
+                            .primary_key()
+                            .auto_increment(),
+                    )
+                    .col(ColumnDef::new(Subtasks::TaskId).integer().not_null())
+                    .col(ColumnDef::new(Subtasks::AssignedTo).integer().null())
+                    .col(
+                        ColumnDef::new(Subtasks::Status)
+                            .enumeration(
+                                TaskStatusType::Table,
+                                [
+                                    TaskStatusType::Pending,
+                                    TaskStatusType::InProgress,
+                                    TaskStatusType::Completed,
+                                ],
+                            )
+                            .not_null()
+                            .default(Expr::cust("'pending'::task_status_type")),
+                    )
+                    .col(ColumnDef::new(Subtasks::Title).string().not_null())
+                    .col(ColumnDef::new(Subtasks::Description).string().null())
+                    .col(
+                        ColumnDef::new(Subtasks::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(Subtasks::DueDate)
+                            .timestamp_with_time_zone()
+                            .null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_subtasks_task")
+                            .from(Subtasks::Table, Subtasks::TaskId)
+                            .to(Tasks::Table, Tasks::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_subtasks_assigned_to")
+                            .from(Subtasks::Table, Subtasks::AssignedTo)
+                            .to(Users::Table, Users::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_subtasks_task_id")
+                    .table(Subtasks::Table)
+                    .col(Subtasks::TaskId)
+                    .to_owned(),
+            )
+            .await?;
+
+        // 9. Notes table
+        manager
+            .create_table(
+                Table::create()
+                    .table(Notes::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Notes::Id)
+                            .integer()
+                            .not_null()
+                            .primary_key()
+                            .auto_increment(),
+                    )
+                    .col(ColumnDef::new(Notes::UserId).integer().not_null())
+                    .col(ColumnDef::new(Notes::CompanyId).integer().null())
+                    .col(ColumnDef::new(Notes::ProjectId).integer().null())
+                    .col(ColumnDef::new(Notes::TaskId).integer().null())
+                    .col(ColumnDef::new(Notes::SubtaskId).integer().null())
+                    .col(ColumnDef::new(Notes::Content).string().not_null())
+                    .col(ColumnDef::new(Notes::Tags).string().null())
+                    .col(
+                        ColumnDef::new(Notes::DecorationColor)
+                            .string()
+                            .null()
+                            .check(Expr::cust("decoration_color ~ '^#[0-9A-Fa-f]{6}$'")),
+                    )
+                    .col(
+                        ColumnDef::new(Notes::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_notes_user")
+                            .from(Notes::Table, Notes::UserId)
                             .to(Users::Table, Users::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
+                    // Add foreign keys for optional relationships
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_userprojects_project")
-                            .from(UserProjects::Table, UserProjects::ProjectId)
+                            .name("fk_notes_company")
+                            .from(Notes::Table, Notes::CompanyId)
+                            .to(Companies::Table, Companies::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_notes_project")
+                            .from(Notes::Table, Notes::ProjectId)
                             .to(Projects::Table, Projects::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .index(
-                        Index::create()
-                            .name("idx_userprojects_user_project")
-                            .col(UserProjects::UserId)
-                            .col(UserProjects::ProjectId)
-                            .unique(),
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_notes_task")
+                            .from(Notes::Table, Notes::TaskId)
+                            .to(Tasks::Table, Tasks::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_notes_subtask")
+                            .from(Notes::Table, Notes::SubtaskId)
+                            .to(Subtasks::Table, Subtasks::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
             .await?;
 
-        // 7. ProjectRoles (Define roles within a project)
         manager
-            .create_table(
-                Table::create()
-                    .table(ProjectRoles::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(ProjectRoles::Id)
-                            .integer()
-                            .not_null()
-                            .primary_key()
-                            .auto_increment(),
-                    )
-                    .col(ColumnDef::new(ProjectRoles::ProjectId).integer().not_null())
-                    .col(ColumnDef::new(ProjectRoles::Name).string().not_null())
-                    .col(ColumnDef::new(ProjectRoles::Description).string())
-                    .col(
-                        ColumnDef::new(ProjectRoles::CreatedAt)
-                            .timestamp_with_time_zone()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .col(
-                        ColumnDef::new(ProjectRoles::UpdatedAt)
-                            .timestamp_with_time_zone()
-                            .not_null()
-                            .default(Expr::current_timestamp()),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_projectroles_project")
-                            .from(ProjectRoles::Table, ProjectRoles::ProjectId)
-                            .to(Projects::Table, Projects::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_projectroles_project_name")
-                            .col(ProjectRoles::ProjectId)
-                            .col(ProjectRoles::Name)
-                            .unique(),
-                    )
+            .create_index(
+                Index::create()
+                    .name("idx_notes_user_id")
+                    .table(Notes::Table)
+                    .col(Notes::UserId)
                     .to_owned(),
             )
             .await?;
 
-        // 8. UserProjectRoles (Assign users to roles within a project)
+        // Since we cannot add a table-level check constraint directly in SeaORM Migrations,
+        // we can execute raw SQL using the connection.
+
+        let sql = "ALTER TABLE notes ADD CONSTRAINT chk_notes_entity CHECK (
+            (company_id IS NOT NULL AND project_id IS NULL AND task_id IS NULL AND subtask_id IS NULL) OR
+            (company_id IS NULL AND project_id IS NOT NULL AND task_id IS NULL AND subtask_id IS NULL) OR
+            (company_id IS NULL AND project_id IS NULL AND task_id IS NOT NULL AND subtask_id IS NULL) OR
+            (company_id IS NULL AND project_id IS NULL AND task_id IS NULL AND subtask_id IS NOT NULL) OR
+            (company_id IS NULL AND project_id IS NULL AND task_id IS NULL AND subtask_id IS NULL)
+        );";
+
+        manager
+            .get_connection()
+            .execute_unprepared(sql)
+            .await
+            .map(|_| ())?;
+
+        // 10. KnowledgeBase table
         manager
             .create_table(
                 Table::create()
-                    .table(UserProjectRoles::Table)
+                    .table(KnowledgeBase::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(UserProjectRoles::Id)
+                        ColumnDef::new(KnowledgeBase::Id)
                             .integer()
                             .not_null()
                             .primary_key()
                             .auto_increment(),
                     )
                     .col(
-                        ColumnDef::new(UserProjectRoles::UserId)
+                        ColumnDef::new(KnowledgeBase::CompanyId)
                             .integer()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(KnowledgeBase::ProjectId).integer().null())
+                    .col(ColumnDef::new(KnowledgeBase::Title).string().not_null())
+                    .col(ColumnDef::new(KnowledgeBase::Content).string().null())
                     .col(
-                        ColumnDef::new(UserProjectRoles::ProjectId)
-                            .integer()
+                        ColumnDef::new(UserCompany::AccessLevel)
+                            .enumeration(
+                                AccessLevelType::Table,
+                                [
+                                    AccessLevelType::Full,
+                                    AccessLevelType::Limited,
+                                    AccessLevelType::Restricted,
+                                ],
+                            )
                             .not_null(),
                     )
-                    .col(
-                        ColumnDef::new(UserProjectRoles::ProjectRoleId)
-                            .integer()
-                            .not_null(),
+                    .col(ColumnDef::new(KnowledgeBase::RoleId).integer().null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_knowledgebase_company")
+                            .from(KnowledgeBase::Table, KnowledgeBase::CompanyId)
+                            .to(Companies::Table, Companies::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_knowledgebase_project")
+                            .from(KnowledgeBase::Table, KnowledgeBase::ProjectId)
+                            .to(Projects::Table, Projects::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_knowledgebase_role")
+                            .from(KnowledgeBase::Table, KnowledgeBase::RoleId)
+                            .to(Roles::Table, Roles::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_knowledgebase_company_id")
+                    .table(KnowledgeBase::Table)
+                    .col(KnowledgeBase::CompanyId)
+                    .to_owned(),
+            )
+            .await?;
+
+        // 11. UserAccess table
+        manager
+            .create_table(
+                Table::create()
+                    .table(UserAccess::Table)
+                    .if_not_exists()
                     .col(
-                        ColumnDef::new(UserProjectRoles::CreatedAt)
-                            .timestamp_with_time_zone()
+                        ColumnDef::new(UserAccess::Id)
+                            .integer()
                             .not_null()
-                            .default(Expr::current_timestamp()),
+                            .primary_key()
+                            .auto_increment(),
+                    )
+                    .col(ColumnDef::new(UserAccess::UserId).integer().not_null())
+                    .col(ColumnDef::new(UserAccess::CompanyId).integer().null())
+                    .col(ColumnDef::new(UserAccess::ProjectId).integer().null())
+                    .col(ColumnDef::new(UserAccess::TaskId).integer().null())
+                    .col(ColumnDef::new(UserAccess::SubtaskId).integer().null())
+                    .col(
+                        ColumnDef::new(UserAccess::AccessLevel)
+                            .enumeration(
+                                AccessLevelType::Table,
+                                [
+                                    AccessLevelType::Full,
+                                    AccessLevelType::Limited,
+                                    AccessLevelType::Restricted,
+                                ],
+                            )
+                            .not_null(),
                     )
                     .col(
-                        ColumnDef::new(UserProjectRoles::UpdatedAt)
+                        ColumnDef::new(UserAccess::CreatedAt)
                             .timestamp_with_time_zone()
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_userprojectroles_user")
-                            .from(UserProjectRoles::Table, UserProjectRoles::UserId)
+                            .name("fk_useraccess_user")
+                            .from(UserAccess::Table, UserAccess::UserId)
                             .to(Users::Table, Users::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
+                    // Add foreign keys for optional relationships
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_userprojectroles_project")
-                            .from(UserProjectRoles::Table, UserProjectRoles::ProjectId)
+                            .name("fk_useraccess_company")
+                            .from(UserAccess::Table, UserAccess::CompanyId)
+                            .to(Companies::Table, Companies::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_useraccess_project")
+                            .from(UserAccess::Table, UserAccess::ProjectId)
                             .to(Projects::Table, Projects::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_userprojectroles_projectrole")
-                            .from(UserProjectRoles::Table, UserProjectRoles::ProjectRoleId)
-                            .to(ProjectRoles::Table, ProjectRoles::Id)
+                            .name("fk_useraccess_task")
+                            .from(UserAccess::Table, UserAccess::TaskId)
+                            .to(Tasks::Table, Tasks::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .index(
-                        Index::create()
-                            .name("idx_userprojectroles_user_project_role")
-                            .col(UserProjectRoles::UserId)
-                            .col(UserProjectRoles::ProjectId)
-                            .col(UserProjectRoles::ProjectRoleId)
-                            .unique(),
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_useraccess_subtask")
+                            .from(UserAccess::Table, UserAccess::SubtaskId)
+                            .to(Subtasks::Table, Subtasks::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
             .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_useraccess_user_id")
+                    .table(UserAccess::Table)
+                    .col(UserAccess::UserId)
+                    .to_owned(),
+            )
+            .await?;
+
+        // Add check constraint to UserAccess table
+        let sql = "ALTER TABLE user_access ADD CONSTRAINT chk_useraccess_level CHECK (
+            (company_id IS NOT NULL AND project_id IS NULL AND task_id IS NULL AND subtask_id IS NULL) OR
+            (company_id IS NULL AND project_id IS NOT NULL AND task_id IS NULL AND subtask_id IS NULL) OR
+            (company_id IS NULL AND project_id IS NULL AND task_id IS NOT NULL AND subtask_id IS NULL) OR
+            (company_id IS NULL AND project_id IS NULL AND task_id IS NULL AND subtask_id IS NOT NULL)
+        );";
+        manager
+            .get_connection()
+            .execute_unprepared(sql)
+            .await
+            .map(|_| ())?;
 
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // Drop tables in reverse order of creation
+        // Drop tables in reverse order
         manager
-            .drop_table(Table::drop().table(UserProjectRoles::Table).to_owned())
+            .drop_table(Table::drop().table(UserAccess::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(ProjectRoles::Table).to_owned())
+            .drop_table(Table::drop().table(KnowledgeBase::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(UserProjects::Table).to_owned())
+            .drop_table(Table::drop().table(Notes::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Subtasks::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Tasks::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(Projects::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(UserGlobalRoles::Table).to_owned())
+            .drop_table(Table::drop().table(UserCompany::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(GlobalRoles::Table).to_owned())
+            .drop_table(Table::drop().table(Roles::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Companies::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(Passwords::Table).to_owned())
@@ -373,16 +750,42 @@ impl MigrationTrait for Migration {
             .drop_table(Table::drop().table(Users::Table).to_owned())
             .await?;
 
+        // Drop ENUM types
+        manager
+            .drop_type(Type::drop().name(AccessLevelType::Table).to_owned())
+            .await?;
+        manager
+            .drop_type(Type::drop().name(TaskStatusType::Table).to_owned())
+            .await?;
+
         Ok(())
     }
 }
 
 // Definitions of table and column enums for code clarity
+
+#[derive(Iden)]
+enum AccessLevelType {
+    Table,
+    Full,
+    Limited,
+    Restricted,
+}
+
+#[derive(Iden)]
+enum TaskStatusType {
+    Table,
+    Pending,
+    InProgress,
+    Completed,
+}
+
 #[derive(Iden)]
 enum Users {
     Table,
     Id,
-    Username,
+    Login,
+    UserName,
     Email,
     IsActive,
     CreatedAt,
@@ -400,56 +803,110 @@ enum Passwords {
 }
 
 #[derive(Iden)]
-enum GlobalRoles {
+enum Companies {
+    Table,
+    Id,
+    Name,
+    NameAlias,
+    Description,
+    ContactInfo,
+}
+
+#[derive(Iden)]
+enum Roles {
     Table,
     Id,
     Name,
     Description,
+    ParentRoleId,
+    Level,
 }
 
 #[derive(Iden)]
-enum UserGlobalRoles {
+enum UserCompany {
     Table,
     Id,
     UserId,
-    GlobalRoleId,
+    CompanyId,
+    RoleId,
+    AccessLevel,
 }
 
 #[derive(Iden)]
 enum Projects {
     Table,
     Id,
-    Name,
-}
-
-#[derive(Iden)]
-enum UserProjects {
-    Table,
-    Id,
-    UserId,
-    ProjectId,
+    CompanyId,
+    Title,
+    Description,
+    DecorationColor,
     CreatedAt,
     UpdatedAt,
 }
 
 #[derive(Iden)]
-enum ProjectRoles {
+enum Tasks {
     Table,
     Id,
     ProjectId,
-    Name,
+    AssignedTo,
+    Status,
+    Title,
+    Description,
+    Priority,
+    CreatedAt,
+    DueDate,
+}
+
+#[derive(Iden)]
+enum Subtasks {
+    Table,
+    Id,
+    TaskId,
+    AssignedTo,
+    Status,
+    Title,
     Description,
     CreatedAt,
-    UpdatedAt,
+    DueDate,
 }
 
 #[derive(Iden)]
-enum UserProjectRoles {
+enum Notes {
     Table,
     Id,
     UserId,
+    CompanyId,
     ProjectId,
-    ProjectRoleId,
+    TaskId,
+    SubtaskId,
+    Content,
+    Tags,
+    DecorationColor,
     CreatedAt,
-    UpdatedAt,
+}
+
+#[derive(Iden)]
+enum KnowledgeBase {
+    Table,
+    Id,
+    CompanyId,
+    ProjectId,
+    Title,
+    Content,
+    AccessLevel,
+    RoleId,
+}
+
+#[derive(Iden)]
+enum UserAccess {
+    Table,
+    Id,
+    UserId,
+    CompanyId,
+    ProjectId,
+    TaskId,
+    SubtaskId,
+    AccessLevel,
+    CreatedAt,
 }
