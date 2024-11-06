@@ -26,6 +26,8 @@ pub enum Relation {
         on_delete = "SetNull"
     )]
     SelfRef,
+    #[sea_orm(has_many = "super::user_access::Entity")]
+    UserAccess,
     #[sea_orm(has_many = "super::user_company::Entity")]
     UserCompany,
 }
@@ -33,6 +35,12 @@ pub enum Relation {
 impl Related<super::knowledge_base::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::KnowledgeBase.def()
+    }
+}
+
+impl Related<super::user_access::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserAccess.def()
     }
 }
 

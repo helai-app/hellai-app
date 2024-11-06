@@ -133,7 +133,7 @@ CREATE INDEX idx_knowledgebase_company_id ON KnowledgeBase(company_id);
 CREATE INDEX idx_knowledgebase_project_id ON KnowledgeBase(project_id);
 CREATE INDEX idx_knowledgebase_role_id ON KnowledgeBase(role_id);
 
--- Simplified permissions table
+-- Simplified permissions table with roles
 CREATE TABLE UserAccess (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
@@ -141,6 +141,7 @@ CREATE TABLE UserAccess (
     project_id INTEGER REFERENCES Projects(id) ON DELETE CASCADE,
     task_id INTEGER REFERENCES Tasks(id) ON DELETE CASCADE,
     subtask_id INTEGER REFERENCES Subtasks(id) ON DELETE CASCADE,
+    role_id INTEGER REFERENCES Roles(id),
     access_level access_level_type NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
 );
@@ -151,6 +152,15 @@ ALTER TABLE UserAccess ADD CONSTRAINT chk_useraccess_level CHECK (
     (company_id IS NULL AND project_id IS NULL AND task_id IS NOT NULL AND subtask_id IS NULL) OR
     (company_id IS NULL AND project_id IS NULL AND task_id IS NULL AND subtask_id IS NOT NULL)
 );
-CREATE UNIQUE INDEX idx_useraccess_unique ON UserAccess(user_id, COALESCE(company_id, 0), COALESCE(project_id, 0), COALESCE(task_id, 0), COALESCE(subtask_id, 0));
+-- Update unique index to include role_id
+CREATE UNIQUE INDEX idx_useraccess_unique ON UserAccess(
+    user_id,
+    COALESCE(company_id, 0),
+    COALESCE(project_id, 0),
+    COALESCE(task_id, 0),
+    COALESCE(subtask_id, 0),
+    COALESCE(role_id, 0)
+);
+-- Create an index on role_id for optimized querying by role
+CREATE INDEX idx_useraccess_role_id ON UserAccess(role_id);
 CREATE INDEX idx_useraccess_user_id ON UserAccess(user_id);
-

@@ -565,7 +565,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(KnowledgeBase::Title).string().not_null())
                     .col(ColumnDef::new(KnowledgeBase::Content).string().null())
                     .col(
-                        ColumnDef::new(UserCompany::AccessLevel)
+                        ColumnDef::new(KnowledgeBase::AccessLevel) // Add AccessLevel column
                             .enumeration(
                                 AccessLevelType::Table,
                                 [
@@ -630,6 +630,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserAccess::ProjectId).integer().null())
                     .col(ColumnDef::new(UserAccess::TaskId).integer().null())
                     .col(ColumnDef::new(UserAccess::SubtaskId).integer().null())
+                    .col(ColumnDef::new(UserAccess::RoleId).integer().null()) // New RoleId column
                     .col(
                         ColumnDef::new(UserAccess::AccessLevel)
                             .enumeration(
@@ -683,6 +684,13 @@ impl MigrationTrait for Migration {
                             .from(UserAccess::Table, UserAccess::SubtaskId)
                             .to(Subtasks::Table, Subtasks::Id)
                             .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_useraccess_role") // Foreign key for RoleId
+                            .from(UserAccess::Table, UserAccess::RoleId)
+                            .to(Roles::Table, Roles::Id)
+                            .on_delete(ForeignKeyAction::SetNull),
                     )
                     .to_owned(),
             )
@@ -904,6 +912,7 @@ enum UserAccess {
     Id,
     UserId,
     CompanyId,
+    RoleId,
     ProjectId,
     TaskId,
     SubtaskId,

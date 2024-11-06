@@ -13,6 +13,7 @@ pub struct Model {
     pub project_id: Option<i32>,
     pub task_id: Option<i32>,
     pub subtask_id: Option<i32>,
+    pub role_id: Option<i32>,
     pub access_level: AccessLevelType,
     pub created_at: DateTimeWithTimeZone,
 }
@@ -35,6 +36,14 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Projects,
+    #[sea_orm(
+        belongs_to = "super::roles::Entity",
+        from = "Column::RoleId",
+        to = "super::roles::Column::Id",
+        on_update = "NoAction",
+        on_delete = "SetNull"
+    )]
+    Roles,
     #[sea_orm(
         belongs_to = "super::subtasks::Entity",
         from = "Column::SubtaskId",
@@ -70,6 +79,12 @@ impl Related<super::companies::Entity> for Entity {
 impl Related<super::projects::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Projects.def()
+    }
+}
+
+impl Related<super::roles::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Roles.def()
     }
 }
 
