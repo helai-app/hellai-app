@@ -57,3 +57,12 @@ message ProjectUserInfoResponse {
 message DeleteProjectRequest {
   int32 project_id = 1; // Unique identifier of the project to be deleted
 }
+
+// Reponse information about project
+message ProjectsResponse {
+  int32 id = 1;                         // Unique identifier of the project
+  int32 company_id = 2;                 // Identifier project company
+  string title = 3;                     // Project title information
+  optional string description = 4;      // Short info about project
+  optional string decoration_color = 5; // Color inicator for UI
+}

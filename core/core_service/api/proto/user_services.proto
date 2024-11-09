@@ -2,93 +2,91 @@ syntax = "proto3";
 
 package helai_api_core_service;
 
+import "companies_services.proto";
+import "projects_services.proto";
+
 // Service handling user-related operations
 service UserService {
-  // Authenticate using login and password, returns user details with tokens
+  // Authenticate a user using login credentials.
+  // Returns tokens, user details, and one company with its projects.
   rpc AuthenticateWithPassword(AuthenticateWithPasswordRequest)
-      returns (UserResponse) {}
+      returns (AuthUserCompanyProjectsInfoResponse) {}
 
-  // Authenticate with token in header
-  rpc GetUserData(EmptyGetUserRequest) returns (ClearUserResponse) {}
+  // Authenticate a user with a token from the header, optionally for a default
+  // company. Returns user details and one company with its projects.
+  rpc GetUserData(GetUserDataRequest)
+      returns (UserCompanyProjectsInfoResponse) {}
 
-  // Register a new user with login, password, and email, returns user details
+  // Register a new user with login credentials and email; returns user details.
   rpc RegisterUser(RegisterUserRequest) returns (NewUserResponse) {}
 
-  // Refresh the session token using a refresh token, returns updated user
-  // details
+  // Refresh the session token using a refresh token; returns updated user
+  // details.
   rpc RefreshSessionToken(RefreshSessionTokenRequest) returns (TokenResponse) {}
 }
 
-// Request message for authentication with password
+// Request message for authentication using login credentials
 message AuthenticateWithPasswordRequest {
-  string login = 1;    // The user's login or username
-  string password = 2; // The user's password
+  string login = 1;    // User's login or username
+  string password = 2; // User's password
 }
 
 // Request message for user registration
 message RegisterUserRequest {
-  string login = 1;          // Desired login or username for the new user
-  string password = 2;       // Password for the new user
-  string user_name = 3;      // User Primary name
-  optional string email = 4; // Email address of the new user
+  string login = 1;     // Desired login for the new user
+  string user_name = 2; // Desired username for the new user
+  string password = 3;  // Password for the new user
+  string email = 4;     // Email address of the new user
 }
 
 // Request message to refresh the session token
 message RefreshSessionTokenRequest {
-  string refresh_token = 1; // The refresh token provided during authentication
+  string refresh_token = 1; // Token used to renew the session
 }
 
-// Empty user request
-message EmptyGetUserRequest {}
-
-// Response message containing user details and tokens
-message UserResponse {
-  int32 id = 1;             // Unique identifier for the user
-  string email = 2;         // Email of the user
-  string user_name = 3;     // User Primary name
-  string login = 4;         // User login
-  string session_token = 5; // New session token for authenticated access
-  string refresh_token = 6; // New refresh token for session renewal
-  repeated UserProjectsResponse user_projects =
-      7; // List of projects associated with the user
+// Request message to retrieve user data with optional default company selection
+message GetUserDataRequest {
+  optional int32 company_id = 1; // Unique identifier for the company (optional)
 }
 
-// Response message containing user details and tokens
-message ClearUserResponse {
-  int32 id = 1;         // Unique identifier for the user
-  string email = 2;     // Email of the user
-  string user_name = 3; // User Primary name
-  string login = 4;     // User login
-  repeated UserProjectsResponse user_projects =
-      5; // List of projects associated with the user
+// Response message containing user details and tokens after authentication
+message AuthUserCompanyProjectsInfoResponse {
+  int32 user_id = 1;               // Unique identifier for the user
+  string email = 2;                // Email of the user
+  string user_name = 3;            // Primary name of the user
+  string login = 4;                // User login
+  string session_token = 5;        // Session token for authenticated access
+  string refresh_token = 6;        // Refresh token for session renewal
+  CompanyInfoResponse company = 7; // Information about the default company
+  repeated ProjectsResponse user_projects =
+      8; // List of projects associated with the user
 }
 
+// Response message containing user details and tokens for default company
+// access
+message UserCompanyProjectsInfoResponse {
+  int32 user_id = 1;               // Unique identifier for the user
+  string email = 2;                // Email of the user
+  string user_name = 3;            // Primary name of the user
+  string login = 4;                // User login
+  string session_token = 5;        // Session token for authenticated access
+  string refresh_token = 6;        // Refresh token for session renewal
+  CompanyInfoResponse company = 7; // Information about the default company
+  repeated ProjectsResponse user_projects =
+      8; // List of projects associated with the user
+}
+
+// Response message containing new user details after registration
 message NewUserResponse {
-  int32 id = 1;             // Unique identifier for the user
+  int32 user_id = 1;        // Unique identifier for the new user
   string email = 2;         // Email of the user
-  string user_name = 3;     // User Primary name
+  string user_name = 3;     // Primary name of the user
   string login = 4;         // User login
-  string session_token = 5; // New session token for authenticated access
-  string refresh_token = 6; // New refresh token for session renewal
+  string session_token = 5; // Session token for authenticated access
+  string refresh_token = 6; // Refresh token for session renewal
 }
 
-// Message representing a project associated with the user
-message UserProjectsResponse {
-  int32 id = 1;          // Unique identifier for the project
-  string company_id = 2; // Identifier of the company owning the project
-  string title = 3;      // Title of the project
-  optional string description =
-      4; // Optional detailed description of the project
-  optional string decoration_color =
-      5; // Optional hexadecimal color code for project UI decoration
-  UserProjectRoleResponse user_role = 6; // User's roles within the project
-}
-
-// Message representing a role the user has in a project
-message UserProjectRoleResponse {
-  int32 id = 1;    // Unique identifier for the user-project-role relationship
-  string name = 2; // Name of the role (e.g., "Manager", "Developer")
-  optional string description = 3; // Description of the role's responsibilities
-}
 // Response message containing only a new session token
-message TokenResponse { string session_token = 1; }
+message TokenResponse {
+  string session_token = 1; // New session token for authenticated access
+}

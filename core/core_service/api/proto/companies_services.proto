@@ -53,3 +53,12 @@ message CompanyUserInfoResponse {
 message DeleteCompanyRequest {
   int32 company_id = 1; // Unique identifier of the company to be deleted
 }
+
+// Reponse information about company
+message CompanyInfoResponse {
+  int32 id = 1;                     // Unique identifier of company
+  string name = 2;                  // Title of the projecompany
+  string name_alias = 3;            // Unique identifier of company name
+  optional string description = 4;  // Short info about company
+  optional string contact_info = 5; // Some contacts (owner email)
+}
