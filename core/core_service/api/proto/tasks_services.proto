@@ -45,13 +45,8 @@ message UserTaskModificationRequest {
 
 // Response message providing user information within a task
 message TaskUserInfoResponse {
-  int32 user_id = 1;      // Unique identifier of the user
-  TaskRole user_role = 2; // Role of the user in the task
-}
-
-// Response message indicating the success status of an operation
-message StatusResponse {
-  bool success = 1; // True if operation succeeded, false otherwise
+  int32 user_id = 1;         // Unique identifier of the user
+  ProjectRole user_role = 2; // Role of the user in the task
 }
 
 // Request message for deleting a task

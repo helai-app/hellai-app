@@ -53,11 +53,6 @@ message ProjectUserInfoResponse {
   ProjectRole user_role = 2; // Role of the user in the project
 }
 
-// Response message indicating the success status of an operation
-message StatusResponse {
-  bool success = 1; // True if operation succeeded, false otherwise
-}
-
 // Request message for deleting a project
 message DeleteProjectRequest {
   int32 project_id = 1; // Unique identifier of the project to be deleted

@@ -9,10 +9,15 @@ message ValidationError {
 
 // Enum representing the roles a user can have in a project
 enum ProjectRole {
-  PROJECT_ROLE_OWNER = 1;         // Owner of the company
-  PROJECT_ROLE_ADMINISTRATOR = 2; // Administrator with full access
-  PROJECT_ROLE_MANAGER = 3;       // Manager with limited administrative rights
-  PROJECT_ROLE_USER = 4;          // Regular user with standard access
-  PROJECT_ROLE_SUPPORT = 5;       // Support staff role
-  PROJECT_ROLE_GUEST = 6;         // Guest with restricted access
+  PROJECT_ROLE_OWNER = 0;         // Owner of the company
+  PROJECT_ROLE_ADMINISTRATOR = 1; // Administrator with full access
+  PROJECT_ROLE_MANAGER = 2;       // Manager with limited administrative rights
+  PROJECT_ROLE_USER = 3;          // Regular user with standard access
+  PROJECT_ROLE_SUPPORT = 4;       // Support staff role
+  PROJECT_ROLE_GUEST = 5;         // Guest with restricted access
+}
+
+// Response message indicating the success status of an operation
+message StatusResponse {
+  bool success = 1; // True if operation succeeded, false otherwise
 }

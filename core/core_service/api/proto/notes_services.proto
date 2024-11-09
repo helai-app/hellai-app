@@ -49,13 +49,8 @@ message UserNoteModificationRequest {
 
 // Response message providing user information within a note
 message NoteUserInfoResponse {
-  int32 user_id = 1;      // Unique identifier of the user
-  NoteRole user_role = 2; // Role of the user in the note
-}
-
-// Response message indicating the success status of an operation
-message StatusResponse {
-  bool success = 1; // True if operation succeeded, false otherwise
+  int32 user_id = 1;         // Unique identifier of the user
+  ProjectRole user_role = 2; // Role of the user in the note
 }
 
 // Request message for deleting a note

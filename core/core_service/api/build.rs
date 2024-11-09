@@ -10,22 +10,22 @@ fn main() {
         .build_server(true)
         .compile_protos(
             &[
+                _default_service_file,
                 _user_proto_file,
                 _projects_proto_file,
-                _default_service_file,
                 _companies_services_file,
                 _notes_services_proto_file,
                 _tasks_services_proto_file,
             ],
-            &["."],
+            &["./proto"], // Specify the proto directory explicitly
         )
         .unwrap_or_else(|e| panic!("protobuf compile error: {}", e));
 
     println!(
         "cargo:rerun-if-changed={} {} {} {} {} {}",
+        _default_service_file,
         _user_proto_file,
         _projects_proto_file,
-        _default_service_file,
         _companies_services_file,
         _notes_services_proto_file,
         _tasks_services_proto_file,
