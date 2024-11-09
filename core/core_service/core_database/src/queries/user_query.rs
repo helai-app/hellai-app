@@ -23,7 +23,7 @@ impl UserQuery {
         user_login: String,
     ) -> Result<Option<(users::Model, passwords::Model)>, CoreErrors> {
         let user_data = prelude::Users::find()
-            .filter(users::Column::Username.eq(user_login))
+            .filter(users::Column::UserName.eq(user_login))
             .find_also_related(prelude::Passwords)
             .one(db)
             .await?;
@@ -121,8 +121,9 @@ impl UserQuery {
         // Convert the result to a user model `users::Model`
         let user_model = users::Model {
             id: new_user.try_get("", "id")?,
-            username: new_user.try_get("", "username")?,
-            email: new_user.try_get("", "email").ok(),
+            login: new_user.try_get("", "login")?,
+            user_name: new_user.try_get("", "user_name")?,
+            email: new_user.try_get("", "email")?,
             is_active: new_user.try_get("", "is_active")?,
             created_at: new_user.try_get("", "created_at")?,
             updated_at: new_user.try_get("", "updated_at")?,

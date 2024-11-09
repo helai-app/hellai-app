@@ -1,33 +1,39 @@
 use core_error::core_errors::CoreErrors;
 
+use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DbBackend, DbConn,
     EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Set, Statement,
 };
 
-use crate::entity::prelude::{Projects, UserProjectRoles};
+use crate::entity::prelude::{Projects, UserAccess};
 use crate::entity::projects::{self};
-use crate::entity::user_project_roles;
+use crate::entity::user_access;
 
 /// Represents a project associated with a user, along with the user's role in that project.
 pub struct UserProject {
     pub id: i32,
-    pub name: String,
-    pub user_role: UserProjectRole,
+    pub company_id: i32,
+    pub title: String,
+    pub description: Option<String>,
+    pub decoration_color: Option<String>,
+    user_role: UserProjectRole,
 }
 
 /// Represents the role a user has in a project.
 pub struct UserProjectRole {
     pub id: i32,
     pub name: String,
-    pub description: Option<String>,
 }
 
 #[derive(Debug, FromQueryResult)]
 struct UserProjectQueryResult {
     // Fields from user_projects
-    user_project_id: i32,
-    project_name: String,
+    project_id: i32,
+    project_company_id: i32,
+    project_title: String,
+    project_description: Option<String>,
+    project_decoration_color: Option<String>,
 
     // Fields from project_roles
     role_id: i32,
@@ -79,12 +85,14 @@ impl ProjectQuery {
         let user_projects = query_results
             .into_iter()
             .map(|record| UserProject {
-                id: record.user_project_id,
-                name: record.project_name,
+                id: record.project_id,
+                company_id: record.project_company_id,
+                title: record.project_title,
+                description: record.project_description,
+                decoration_color: record.project_decoration_color,
                 user_role: UserProjectRole {
                     id: record.role_id,
                     name: record.role_name,
-                    description: record.role_description,
                 },
             })
             .collect();
@@ -138,9 +146,22 @@ impl ProjectQuery {
         // Extract the project details from the query result
         let project = if let Some(row) = project_result {
             let id: i32 = row.try_get("", "id")?;
-            let name: String = row.try_get("", "name")?;
+            let company_id: i32 = row.try_get("", "company_id")?;
+            let title: String = row.try_get("", "title")?;
+            let description: Option<String> = row.try_get("", "description")?;
+            let decoration_color: Option<String> = row.try_get("", "decoration_color")?;
+            let created_at: DateTimeWithTimeZone = row.try_get("", "created_at")?;
+            let updated_at: DateTimeWithTimeZone = row.try_get("", "updated_at")?;
 
-            projects::Model { id, name }
+            projects::Model {
+                id,
+                company_id: company_id,
+                title: title,
+                description: description,
+                decoration_color: decoration_color,
+                created_at: created_at,
+                updated_at: updated_at,
+            }
         } else {
             return Err(CoreErrors::DatabaseServiceError(
                 "failed_create_project".to_string(),
@@ -182,11 +203,11 @@ impl ProjectQuery {
         user_id: i32,
         project_id: i32,
         project_role_id: i32,
-    ) -> Result<user_project_roles::Model, CoreErrors> {
+    ) -> Result<user_access::Model, CoreErrors> {
         // Check if the user already has a role in the project
-        let existing_role = UserProjectRoles::find()
-            .filter(user_project_roles::Column::UserId.eq(user_id))
-            .filter(user_project_roles::Column::ProjectId.eq(project_id))
+        let existing_role = UserAccess::find()
+            .filter(user_access::Column::UserId.eq(user_id))
+            .filter(user_access::Column::ProjectId.eq(project_id))
             .one(db)
             .await?;
 
@@ -194,15 +215,15 @@ impl ProjectQuery {
             Some(role) => {
                 // Update the existing role
                 let mut active_role = role.into_active_model();
-                active_role.project_role_id = Set(project_role_id);
+                active_role.role_id = Set(Some(project_role_id));
                 active_role.update(db).await?
             }
             None => {
                 // Create a new role assignment
-                let new_role = user_project_roles::ActiveModel {
+                let new_role = user_access::ActiveModel {
                     user_id: Set(user_id),
-                    project_id: Set(project_id),
-                    project_role_id: Set(project_role_id),
+                    project_id: Set(Some(project_id)),
+                    role_id: Set(Some(project_role_id)),
                     ..Default::default()
                 };
                 new_role.insert(db).await?
@@ -229,9 +250,9 @@ impl ProjectQuery {
         user_id: i32,
     ) -> Result<(), CoreErrors> {
         // Delete the role assignment from user_project_roles
-        let delete_result = UserProjectRoles::delete_many()
-            .filter(user_project_roles::Column::UserId.eq(user_id))
-            .filter(user_project_roles::Column::ProjectId.eq(project_id))
+        let delete_result = UserAccess::delete_many()
+            .filter(user_access::Column::UserId.eq(user_id))
+            .filter(user_access::Column::ProjectId.eq(project_id))
             .exec(db)
             .await?;
 
@@ -247,11 +268,11 @@ impl ProjectQuery {
         db: &DbConn,
         project_id: i32,
         user_id: i32,
-    ) -> Result<Option<user_project_roles::Model>, CoreErrors> {
+    ) -> Result<Option<user_access::Model>, CoreErrors> {
         // Delete the role assignment from user_project_roles
-        let user_role = UserProjectRoles::find()
-            .filter(user_project_roles::Column::UserId.eq(user_id))
-            .filter(user_project_roles::Column::ProjectId.eq(project_id))
+        let user_role = UserAccess::find()
+            .filter(user_access::Column::UserId.eq(user_id))
+            .filter(user_access::Column::ProjectId.eq(project_id))
             .one(db)
             .await?;
 
