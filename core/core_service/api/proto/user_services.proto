@@ -29,7 +29,8 @@ message AuthenticateWithPasswordRequest {
 message RegisterUserRequest {
   string login = 1;          // Desired login or username for the new user
   string password = 2;       // Password for the new user
-  optional string email = 3; // Email address of the new user
+  string user_name = 3;      // User Primary name
+  optional string email = 4; // Email address of the new user
 }
 
 // Request message to refresh the session token
@@ -42,41 +43,52 @@ message EmptyGetUserRequest {}
 
 // Response message containing user details and tokens
 message UserResponse {
-  int32 user_id = 1;         // Unique identifier for the user
-  optional string email = 2; // Email of the user
-  string session_token = 3;  // New session token for authenticated access
-  string refresh_token = 4;  // New refresh token for session renewal
+  int32 id = 1;             // Unique identifier for the user
+  string email = 2;         // Email of the user
+  string user_name = 3;     // User Primary name
+  string login = 4;         // User login
+  string session_token = 5; // New session token for authenticated access
+  string refresh_token = 6; // New refresh token for session renewal
   repeated UserProjectsResponse user_projects =
-      5; // List of projects associated with the user
+      7; // List of projects associated with the user
 }
 
 // Response message containing user details and tokens
 message ClearUserResponse {
-  int32 user_id = 1;         // Unique identifier for the user
-  optional string email = 2; // Email of the user
+  int32 id = 1;         // Unique identifier for the user
+  string email = 2;     // Email of the user
+  string user_name = 3; // User Primary name
+  string login = 4;     // User login
   repeated UserProjectsResponse user_projects =
-      3; // List of projects associated with the user
+      5; // List of projects associated with the user
 }
 
 message NewUserResponse {
-  int32 user_id = 1;         // Unique identifier for the user
-  optional string email = 2; // Email of the user
-  string session_token = 3;  // New session token for authenticated access
-  string refresh_token = 4;  // New refresh token for session renewal
+  int32 id = 1;             // Unique identifier for the user
+  string email = 2;         // Email of the user
+  string user_name = 3;     // User Primary name
+  string login = 4;         // User login
+  string session_token = 5; // New session token for authenticated access
+  string refresh_token = 6; // New refresh token for session renewal
 }
 
 // Message representing a project associated with the user
 message UserProjectsResponse {
-  int32 project_id = 1;                  // Unique identifier for the project
-  string project_name = 2;               // Name of the project
-  UserProjectRoleResponse user_role = 3; // Roles the user holds in this project
+  int32 id = 1;          // Unique identifier for the project
+  string company_id = 2; // Identifier of the company owning the project
+  string title = 3;      // Title of the project
+  optional string description =
+      4; // Optional detailed description of the project
+  optional string decoration_color =
+      5; // Optional hexadecimal color code for project UI decoration
+  UserProjectRoleResponse user_role = 6; // User's roles within the project
 }
 
 // Message representing a role the user has in a project
 message UserProjectRoleResponse {
-  int32 role_id = 1; // Unique identifier for the user-project-role relationship
-  string name = 2;   // Name of the role (e.g., "Manager", "Developer")
-  string description = 3; // Description of the role's responsibilities
+  int32 id = 1;    // Unique identifier for the user-project-role relationship
+  string name = 2; // Name of the role (e.g., "Manager", "Developer")
+  optional string description = 3; // Description of the role's responsibilities
 }
 // Response message containing only a new session token
 message TokenResponse { string session_token = 1; }

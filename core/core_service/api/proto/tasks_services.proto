@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package helai_api_core_service;
+
+import "default_service.proto";
+
+// Service handling task-related operations
+service TasksService {
+
+  // RPC for creating a new task
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse) {}
+
+  // RPC for adding a user to a task
+  rpc AddUserToTask(UserTaskModificationRequest)
+      returns (TaskUserInfoResponse) {}
+
+  // RPC for removing a user from a task
+  rpc RemoveUserFromTask(UserTaskModificationRequest) returns (StatusResponse) {
+  }
+
+  // RPC for deleting a task
+  rpc DeleteTask(DeleteTaskRequest) returns (StatusResponse) {}
+}
+
+// Request message for creating a new task
+message CreateTaskRequest {
+  int32 project_id = 1;   // ID of the associated project
+  string title = 2;       // Title of the task
+  string description = 3; // Description of the task
+}
+
+// Response message after creating a new task
+message CreateTaskResponse {
+  int32 task_id = 1;      // Unique identifier of the created task
+  int32 project_id = 2;   // ID of the associated project
+  string title = 3;       // Title of the task
+  string description = 4; // Description of the task
+}
+
+// Request message for modifying user-task relationships
+message UserTaskModificationRequest {
+  int32 user_id = 1; // Unique identifier of the user
+  int32 task_id = 2; // Unique identifier of the task
+}
+
+// Response message providing user information within a task
+message TaskUserInfoResponse {
+  int32 user_id = 1;      // Unique identifier of the user
+  TaskRole user_role = 2; // Role of the user in the task
+}
+
+// Response message indicating the success status of an operation
+message StatusResponse {
+  bool success = 1; // True if operation succeeded, false otherwise
+}
+
+// Request message for deleting a task
+message DeleteTaskRequest {
+  int32 task_id = 1; // Unique identifier of the task to be deleted
+}

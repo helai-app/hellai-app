@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package helai_api_core_service;
+
+import "default_service.proto";
+
+// Service for managing note-related operations
+service NotesService {
+
+  // Creates a new note within a specified project, company, or task
+  rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse) {}
+
+  // Adds a user to a specified note with a particular role
+  rpc AddUserToNote(UserNoteModificationRequest)
+      returns (NoteUserInfoResponse) {}
+
+  // Removes a user from a specified note
+  rpc RemoveUserFromNote(UserNoteModificationRequest) returns (StatusResponse) {
+  }
+
+  // Deletes a note by its unique identifier
+  rpc DeleteNote(DeleteNoteRequest) returns (StatusResponse) {}
+}
+
+// Request message for creating a new note
+message CreateNoteRequest {
+  int32 project_id = 1;        // ID of the associated project
+  int32 company_id = 2;        // ID of the associated company
+  int32 task_id = 3;           // ID of the associated task
+  int32 subtask_id = 4;        // ID of the associated subtask
+  string content = 5;          // Content of the note
+  string tags = 6;             // Tags associated with the note
+  string decoration_color = 7; // Color for note decoration
+}
+
+// Response message after creating a new note
+message CreateNoteResponse {
+  int32 note_id = 1;      // Unique identifier of the created note
+  int32 project_id = 2;   // ID of the associated project
+  string title = 3;       // Title of the note
+  string description = 4; // Description of the note
+}
+
+// Request message for modifying user-note relationships
+message UserNoteModificationRequest {
+  int32 user_id = 1; // Unique identifier of the user
+  int32 task_id = 2; // Unique identifier of the task associated with the note
+}
+
+// Response message providing user information within a note
+message NoteUserInfoResponse {
+  int32 user_id = 1;      // Unique identifier of the user
+  NoteRole user_role = 2; // Role of the user in the note
+}
+
+// Response message indicating the success status of an operation
+message StatusResponse {
+  bool success = 1; // True if operation succeeded, false otherwise
+}
+
+// Request message for deleting a note
+message DeleteNoteRequest {
+  int32 note_id = 1; // Unique identifier of the note to be deleted
+}
