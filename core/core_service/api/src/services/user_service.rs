@@ -19,6 +19,7 @@ use crate::{
 
 #[tonic::async_trait]
 impl UserService for MyServer {
+    /// 🧨 Get user data with creds.
     async fn authenticate_with_password(
         &self,
         request: Request<AuthenticateWithPasswordRequest>,
@@ -109,6 +110,7 @@ impl UserService for MyServer {
         Ok(response)
     }
 
+    /// 🧨 Get user data with auth token.
     async fn get_user_data(
         &self,
         request: Request<GetUserDataRequest>,
@@ -175,6 +177,7 @@ impl UserService for MyServer {
         Ok(response)
     }
 
+    /// 🧨 Register new user.
     async fn register_user(
         &self,
         request: Request<RegisterUserRequest>,
@@ -229,28 +232,35 @@ impl UserService for MyServer {
         Ok(response)
     }
 
+    /// 🧨 Refreshes the user's session token using a provided refresh token.
     async fn refresh_session_token(
         &self,
         request: Request<RefreshSessionTokenRequest>,
     ) -> Result<Response<TokenResponse>, Status> {
-        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
+        // Log the incoming request for debugging purposes
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received refresh token request: {:?}", request);
 
-        let request: RefreshSessionTokenRequest = request.into_inner();
+        // Extract the inner data from the gRPC request
+        let request = request.into_inner();
 
-        let refresh_token: String = request.refresh_token;
+        // Extract the refresh token from the request
+        let refresh_token = request.refresh_token;
 
-        let request_claims = RefreshClaims::from_token(refresh_token)?;
+        // Decode and validate the refresh token claims
+        let refresh_claims = RefreshClaims::from_token(refresh_token)?;
 
-        let session_claims: SessionClaims = SessionClaims::new(request_claims.sub);
+        // Generate a new session token using the user ID from the refresh claims
+        let session_claims = SessionClaims::new(refresh_claims.sub);
         let session_token = session_claims.into_token()?;
 
-        let reply = TokenResponse {
-            session_token: session_token,
-        };
+        // Prepare the response containing the new session token
+        let reply = TokenResponse { session_token };
         let response = Response::new(reply);
 
-        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
+        // Log the response for debugging purposes
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Generated new session token response: {:?}", response);
 
+        // Return the successful response
         Ok(response)
     }
 }
