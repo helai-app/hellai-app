@@ -23,7 +23,7 @@ impl UserQuery {
         user_login: String,
     ) -> Result<Option<(users::Model, passwords::Model)>, CoreErrors> {
         let user_data = prelude::Users::find()
-            .filter(users::Column::UserName.eq(user_login))
+            .filter(users::Column::Login.eq(user_login))
             .find_also_related(prelude::Passwords)
             .one(db)
             .await?;

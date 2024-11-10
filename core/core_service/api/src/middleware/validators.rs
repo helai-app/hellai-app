@@ -185,9 +185,9 @@ pub fn max_symbols_validator_20(value: String) -> Result<String, CoreErrors> {
     Ok(value)
 }
 
-/// Validator that checks if the value does not contain special characters.
+/// Validator that checks if the value contains only alphanumeric characters and spaces.
 pub fn no_special_symbols_validator(value: String) -> Result<String, CoreErrors> {
-    if value.chars().any(|c| !c.is_alphanumeric()) {
+    if value.chars().any(|c| !c.is_alphanumeric() && c != ' ') {
         return Err(CoreErrors::DataValidationError(
             "validator_special_symbols".to_string(),
         ));

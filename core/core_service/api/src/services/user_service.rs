@@ -10,6 +10,10 @@ use middleware::auth_token::{RefreshClaims, SessionClaims};
 
 use service::password_validation::{hash_password, verify_hash_password};
 use tonic::{Request, Response, Status};
+use validators::{
+    empty_validation, max_symbols_validator_20, min_symbols_validator_3,
+    no_special_symbols_validator, CompositValidator,
+};
 
 use crate::{
     helai_api_core_service::{self, *},
@@ -124,6 +128,9 @@ impl UserService for MyServer {
         // Extract user ID from authentication token in request metadata
         let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
 
+        // Unwrap the request to access its inner data
+        let request = request.into_inner();
+
         // Retrieve user information by user ID from the database
         let user = match UserQuery::get_user_by_id(conn, user_id_from_token as i32).await? {
             Some(user) => user,
@@ -132,7 +139,7 @@ impl UserService for MyServer {
 
         // Fetch user's associated company and project information
         let user_company_with_projects =
-            CompaniesQuery::get_company_with_projects(conn, user.id, None).await?;
+            CompaniesQuery::get_company_with_projects(conn, user.id, request.company_id).await?;
 
         // Format response structure for company and projects, if available
         let (company_info, projects) = match user_company_with_projects {
@@ -191,9 +198,16 @@ impl UserService for MyServer {
         // Unwrap the request to access its inner data
         let request = request.into_inner();
 
+        let composite_validator = CompositValidator::new(vec![
+            empty_validation,
+            min_symbols_validator_3,
+            max_symbols_validator_20,
+            no_special_symbols_validator,
+        ]);
+
         // Validate input data formats
         let login = validators::login_format_validation(request.login)?;
-        let user_name = validators::login_format_validation(request.user_name)?;
+        let user_name = composite_validator.validate(request.user_name)?;
         let password = validators::password_format_validation(request.password)?;
         let email = validators::email_format_validation(request.email)?;
 

@@ -38,7 +38,6 @@ struct UserProjectQueryResult {
     // Fields from project_roles
     role_id: i32,
     role_name: String,
-    role_description: Option<String>,
 }
 
 /// Provides methods for querying and manipulating projects and user roles.
@@ -65,7 +64,6 @@ impl ProjectQuery {
                 p.name AS project_name,
                 pr.id AS role_id,
                 pr.name AS role_name,
-                pr.description AS role_description
             FROM
                 user_projects up
                 INNER JOIN projects p ON up.project_id = p.id
