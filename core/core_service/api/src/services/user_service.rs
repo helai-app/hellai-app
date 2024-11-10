@@ -117,17 +117,19 @@ impl UserService for MyServer {
         &self,
         request: Request<GetUserDataRequest>,
     ) -> Result<Response<UserCompanyProjectsInfoResponse>, Status> {
-        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
+        // Log incoming request for debugging
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received user data request: {:?}", request);
 
+        // Extract database connection
         let conn = &self.connection;
 
-        // Extract user ID from auth token in request metadata
+        // Extract user ID from authentication token in request metadata
         let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
 
-        // Get user info from bd
+        // Retrieve user information by user ID from the database
         let user = match UserQuery::get_user_by_id(conn, user_id_from_token as i32).await? {
             Some(user) => user,
-            None => return Err(Status::invalid_argument("failed_find_user")),
+            None => return Err(Status::invalid_argument("User not found: Invalid user ID")),
         };
 
         // Fetch user's associated company and project information
@@ -156,7 +158,7 @@ impl UserService for MyServer {
                     })
                     .collect(),
             ),
-            None => (None, vec![]), // Empty vector if no projects are found
+            None => (None, vec![]), // Return an empty vector if no projects are found
         };
 
         // Construct response with user and company/project details
@@ -169,9 +171,11 @@ impl UserService for MyServer {
             user_projects: projects,
         };
 
+        // Wrap response in gRPC Response object and log it
         let response = Response::new(reply);
+        event!(target: "hellai_app_core_events", Level::DEBUG, "User data response: {:?}", response);
 
-        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
+        // Return successful response
         Ok(response)
     }
 
