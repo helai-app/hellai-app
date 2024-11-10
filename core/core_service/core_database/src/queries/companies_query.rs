@@ -75,7 +75,7 @@ impl CompaniesQuery {
     ) -> Result<Option<UserCompany>, CoreErrors> {
         // Define the SQL query based on whether `company_id` is provided.
         // If a specific company ID is provided, fetch both company and project details.
-        let sql = if let Some(cid) = company_id {
+        let sql = if let Some(_) = company_id {
             // SQL query for fetching company details and its associated projects.
             r#"
         SELECT

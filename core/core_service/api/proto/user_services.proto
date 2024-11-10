@@ -59,23 +59,21 @@ message AuthUserCompanyProjectsInfoResponse {
   string refresh_token = 6; // Refresh token for session renewal
   optional CompanyInfoResponse company =
       7; // Information about the default company
-  optional repeated ProjectsResponse user_projects =
+  repeated ProjectsResponse user_projects =
       8; // List of projects associated with the user
 }
 
 // Response message containing user details and tokens for default company
 // access
 message UserCompanyProjectsInfoResponse {
-  int32 user_id = 1;        // Unique identifier for the user
-  string email = 2;         // Email of the user
-  string user_name = 3;     // Primary name of the user
-  string login = 4;         // User login
-  string session_token = 5; // Session token for authenticated access
-  string refresh_token = 6; // Refresh token for session renewal
+  int32 user_id = 1;    // Unique identifier for the user
+  string email = 2;     // Email of the user
+  string user_name = 3; // Primary name of the user
+  string login = 4;     // User login
   optional CompanyInfoResponse company =
-      7; // Information about the default company
-  optional repeated ProjectsResponse user_projects =
-      8; // List of projects associated with the user
+      5; // Information about the default company
+  repeated ProjectsResponse user_projects =
+      6; // List of projects associated with the user
 }
 
 // Response message containing new user details after registration

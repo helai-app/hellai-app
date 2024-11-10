@@ -115,8 +115,8 @@ impl UserService for MyServer {
 
     async fn get_user_data(
         &self,
-        request: Request<EmptyGetUserRequest>,
-    ) -> Result<Response<ClearUserResponse>, Status> {
+        request: Request<GetUserDataRequest>,
+    ) -> Result<Response<UserCompanyProjectsInfoResponse>, Status> {
         event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
 
         let conn = &self.connection;
@@ -130,28 +130,43 @@ impl UserService for MyServer {
             None => return Err(Status::invalid_argument("failed_find_user")),
         };
 
-        // Get User projects info
-        let user_companies: Vec<UserProject> =
-            ProjectQuery::get_user_projects_with_roles(conn, user.id).await?;
+        // Fetch user's associated company and project information
+        let user_company_with_projects =
+            CompaniesQuery::get_company_with_projects(conn, user.id, None).await?;
 
-        let user_projects_response: Vec<UserProjectsResponse> = user_companies
-            .into_iter()
-            .map(|c| UserProjectsResponse {
-                project_id: c.id,
-                project_name: c.name,
-                user_role: Some(UserProjectRoleResponse {
-                    role_id: c.user_role.id,
-                    name: c.user_role.name,
-                    description: c.user_role.description.unwrap_or(String::new()),
+        // Format response structure for company and projects, if available
+        let (company_info, projects) = match user_company_with_projects {
+            Some(company) => (
+                Some(CompanyInfoResponse {
+                    id: company.id,
+                    name: company.name,
+                    name_alias: company.name_alias,
+                    description: company.description,
+                    contact_info: company.contact_info,
                 }),
-            })
-            .collect();
+                company
+                    .company_projects
+                    .into_iter()
+                    .map(|project| ProjectsResponse {
+                        id: project.id,
+                        company_id: project.company_id,
+                        title: project.title,
+                        description: project.description,
+                        decoration_color: project.decoration_color,
+                    })
+                    .collect(),
+            ),
+            None => (None, vec![]), // Empty vector if no projects are found
+        };
 
-        // Create respnse
-        let reply = ClearUserResponse {
+        // Construct response with user and company/project details
+        let reply = UserCompanyProjectsInfoResponse {
             user_id: user.id,
             email: user.email,
-            user_projects: user_projects_response,
+            user_name: user.user_name,
+            login: user.login,
+            company: company_info,
+            user_projects: projects,
         };
 
         let response = Response::new(reply);
