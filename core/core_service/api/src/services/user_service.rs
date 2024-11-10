@@ -1,8 +1,4 @@
-use core_database::queries::{
-    companies_query::{CompaniesQuery, UserCompany},
-    projects_query::{ProjectQuery, UserProject},
-    user_query::UserQuery,
-};
+use core_database::queries::{companies_query::CompaniesQuery, user_query::UserQuery};
 use core_debugger::tracing::{event, Level};
 use helai_api_core_service::{
     user_service_server::UserService, AuthUserCompanyProjectsInfoResponse,
@@ -183,47 +179,53 @@ impl UserService for MyServer {
         &self,
         request: Request<RegisterUserRequest>,
     ) -> Result<Response<NewUserResponse>, Status> {
-        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
+        // Log the incoming registration request for debugging purposes
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received registration request: {:?}", request);
 
+        // Extract the database connection
         let conn = &self.connection;
 
-        let request: RegisterUserRequest = request.into_inner();
+        // Unwrap the request to access its inner data
+        let request = request.into_inner();
 
-        // Check if there correct data in request
-        let login: String = validators::login_format_validation(request.login)?;
-        let password: String = validators::password_format_validation(request.password)?;
-        let email: Option<String> = if let Some(email) = request.email {
-            Some(validators::email_format_validation(email)?)
-        } else {
-            None
-        };
+        // Validate input data formats
+        let login = validators::login_format_validation(request.login)?;
+        let user_name = validators::login_format_validation(request.user_name)?;
+        let password = validators::password_format_validation(request.password)?;
+        let email = validators::email_format_validation(request.email)?;
 
-        // Secure password
-        let hash_password = hash_password(password.as_str())?;
+        // Hash the password for secure storage
+        let hashed_password = hash_password(password.as_str())?;
 
-        // Create new user
-        let new_user = UserQuery::create_new_user(conn, login, hash_password.0, email).await?;
+        // Create a new user record in the database
+        let new_user =
+            UserQuery::create_new_user(conn, login, user_name, hashed_password.0, email).await?;
 
-        event!(target: "hellai_app_core_events", Level::DEBUG, "New user:\n{:?}", new_user);
+        // Log the newly created user details
+        event!(target: "hellai_app_core_events", Level::DEBUG, "New user created: {:?}", new_user);
 
-        // Get User session tokens
-        let session_claims: SessionClaims = SessionClaims::new(new_user.id as i64);
-        let session_token: String = session_claims.into_token()?;
+        // Generate session and refresh tokens for the new user
+        let session_claims = SessionClaims::new(new_user.id as i64);
+        let session_token = session_claims.into_token()?;
 
-        let refresh_claims: RefreshClaims = RefreshClaims::new(new_user.id as i64);
+        let refresh_claims = RefreshClaims::new(new_user.id as i64);
         let refresh_token = refresh_claims.into_token()?;
 
+        // Prepare the response with new user details and tokens
         let reply = NewUserResponse {
             user_id: new_user.id,
             email: new_user.email,
-            session_token: session_token,
-            refresh_token: refresh_token,
+            login: new_user.login,
+            user_name: new_user.user_name,
+            session_token,
+            refresh_token,
         };
 
+        // Wrap the response in a gRPC Response object and log it
         let response = Response::new(reply);
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Registration response: {:?}", response);
 
-        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
-
+        // Return the successful response
         Ok(response)
     }
 
