@@ -1,7 +1,8 @@
+use core_debugger::tracing::{event, Level};
 // use core_database::queries::projects_query::ProjectQuery;
 // use core_debugger::tracing::{event, Level};
-// use sea_orm::DbConn;
-// use tonic::{Request, Response, Status};
+use sea_orm::DbConn;
+use tonic::{Request, Response, Status};
 
 // use crate::{
 //     helai_api_core_service::{
@@ -18,10 +19,65 @@
 //     },
 //     my_server::MyServer,
 // };
+use crate::{
+    helai_api_core_service::{
+        projects_service_server::ProjectsService, CreateProjectRequest, CreateProjectResponse,
+        DeleteProjectRequest, ProjectUserInfoResponse, StatusResponse,
+        UserProjectModificationRequest,
+    },
+    middleware::validators::{
+        empty_validation, max_symbols_validator_20, min_symbols_validator_3,
+        no_special_symbols_validator, CompositValidator,
+    },
+    my_server::MyServer,
+};
 
-// // Implementing the ProjectsService trait for MyServer
-// #[tonic::async_trait]
-// impl ProjectsService for MyServer {
+// Implementing the ProjectsService trait for MyServer
+#[tonic::async_trait]
+impl ProjectsService for MyServer {
+    async fn create_project(
+        &self,
+        request: Request<CreateProjectRequest>,
+    ) -> Result<Response<CreateProjectResponse>, Status> {
+        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
+
+        // Unwrap the request to access its inner data
+        let request = request.into_inner();
+
+        // Validate project name using composite validator
+        let composite_validator = CompositValidator::new(vec![
+            empty_validation,
+            min_symbols_validator_3,
+            max_symbols_validator_20,
+            no_special_symbols_validator,
+        ]);
+
+        let validated_project_name = composite_validator.validate(request.project_name)?;
+
+        todo!()
+    }
+
+    async fn add_user_to_project(
+        &self,
+        request: Request<UserProjectModificationRequest>,
+    ) -> Result<Response<ProjectUserInfoResponse>, Status> {
+        todo!()
+    }
+
+    async fn remove_user_from_project(
+        &self,
+        request: Request<UserProjectModificationRequest>,
+    ) -> Result<Response<StatusResponse>, Status> {
+        todo!()
+    }
+
+    async fn delete_project(
+        &self,
+        request: Request<DeleteProjectRequest>,
+    ) -> Result<Response<StatusResponse>, Status> {
+        todo!()
+    }
+}
 //     // Handle creating a new project
 //     async fn create_project(
 //         &self,

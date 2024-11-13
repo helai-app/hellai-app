@@ -149,7 +149,7 @@ impl MigrationTrait for Migration {
                             .string()
                             .not_null()
                             .unique_key()
-                            .check(Expr::cust("name_alias ~ '^[a-z]+$'")),
+                            .check(Expr::cust("name_alias ~ '^[a-z0-9]+$'")),
                     )
                     .col(ColumnDef::new(Companies::Description).string().null())
                     .col(ColumnDef::new(Companies::ContactInfo).string().null())

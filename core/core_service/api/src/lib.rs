@@ -1,4 +1,6 @@
 use colored::Colorize;
+use helai_api_core_service::companies_service_server::CompaniesServiceServer;
+use helai_api_core_service::projects_service_server::ProjectsServiceServer;
 use helai_api_core_service::user_service_server::UserServiceServer;
 use http::Method;
 use std::{env, sync::Arc};
@@ -65,7 +67,8 @@ pub async fn start() -> Result<(), Box<dyn std::error::Error>> {
         .layer(cors)
         .layer(tonic_web::GrpcWebLayer::new())
         .add_service(UserServiceServer::new(my_server.clone()))
-        // .add_service(ProjectsServiceServer::new(my_server.clone()))
+        .add_service(ProjectsServiceServer::new(my_server.clone()))
+        .add_service(CompaniesServiceServer::new(my_server.clone()))
         .serve(addr)
         .await?;
 

@@ -24,17 +24,17 @@ service CompaniesService {
 
 // Request message for creating a new company
 message CreateCompanyRequest {
-  string name = 1;         // Company name
-  string description = 2;  // Brief description of the company
-  string contact_info = 3; // Contact information for the company
+  string name = 1;                  // Company name
+  optional string description = 2;  // Brief description of the company
+  optional string contact_info = 3; // Contact information for the company
 }
 
 // Response message after creating a new company
 message CreateCompanyResponse {
-  int32 company_id = 1;    // Unique identifier of the created company
-  string name = 2;         // Company name
-  string description = 3;  // Brief description of the company
-  string contact_info = 4; // Contact information for the company
+  int32 company_id = 1;             // Unique identifier of the created company
+  string name = 2;                  // Company name
+  optional string description = 3;  // Brief description of the company
+  optional string contact_info = 4; // Contact information for the company
 }
 
 // Request message for modifying user-company relationships

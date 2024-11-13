@@ -1,5 +1,8 @@
 use core_error::core_errors::CoreErrors;
-use sea_orm::{DbBackend, DbConn, FromQueryResult, Statement};
+use rand::Rng;
+use sea_orm::{ConnectionTrait, DatabaseBackend, DbBackend, DbConn, FromQueryResult, Statement};
+
+use crate::entity::companies;
 
 /// User Company with projects
 pub struct UserCompany {
@@ -197,4 +200,142 @@ impl CompaniesQuery {
         // Return the `UserCompany` wrapped in `Some`, or `None` if no data was found.
         Ok(user_company)
     }
+
+    /// Creates a new company and assigns the specified user to that company with a "limited" access level.
+    ///
+    /// This function uses Common Table Expressions (CTEs) to first insert a new company record into the `companies` table.
+    /// It then assigns the user to the new company with a "limited" access level in the `UserCompany` table.
+    /// The `name_alias` field is automatically generated from the `name` by converting it to a lowercase, alphanumeric identifier.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - The database connection.
+    /// * `user_id` - The ID of the user to be assigned to the new company.
+    /// * `name` - The name of the new company.
+    /// * `description` - A brief description of the company.
+    /// * `contact_info` - Contact information for the company.
+    ///
+    /// # Returns
+    ///
+    /// A `Result<companies::Model, CoreErrors>` containing the newly created company model, including fields:
+    /// `id`, `name`, `name_alias`, `description`, and `contact_info`. The company model is returned if creation is successful.
+    ///
+    /// Returns an error of type `CoreErrors` if the query fails.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let company = create_new_company(&db, user_id, "Tech Corp", "An innovative tech company.", "contact@techcorp.com").await?;
+    /// println!("New company created with ID: {}", company.id);
+    /// ```
+
+    pub async fn create_new_company(
+        db: &DbConn,
+        user_id: i32,
+        name: String,
+        description: Option<String>,
+        contact_info: Option<String>,
+    ) -> Result<companies::Model, CoreErrors> {
+        let mut attempts = 0;
+
+        loop {
+            // Generate the name alias, adding a random suffix if needed for retry attempts.
+            let name_alias = if attempts == 0 {
+                convert_to_identifier(name.as_str())
+            } else {
+                format!(
+                    "{}{}",
+                    convert_to_identifier(name.as_str()),
+                    rand::thread_rng().gen_range(1..1000)
+                )
+            };
+
+            println!("Test {}", name_alias);
+
+            // Step 1: Check if `name_alias` already exists in the `companies` table.
+            let check_alias_sql =
+                "SELECT EXISTS (SELECT 1 FROM companies WHERE name_alias = $1) AS alias_exists;";
+
+            let check_alias_stmt = Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                check_alias_sql,
+                vec![name_alias.clone().into()], // $1 - Company alias to check
+            );
+
+            if let Some(alias_check_result) = db.query_one(check_alias_stmt).await? {
+                let alias_exists: bool = alias_check_result.try_get("", "alias_exists")?;
+                if alias_exists {
+                    // If alias exists, retry with a new alias
+                    attempts += 1;
+                    continue;
+                }
+            }
+
+            // Step 2: Insert the new company and assign the user to the company in `UserCompany` table.
+            let insert_sql = r#"
+            WITH new_company AS (
+                INSERT INTO companies (name, name_alias, description, contact_info)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id, name, name_alias, description, contact_info
+            ),
+            inserted_user_company AS (
+                INSERT INTO user_company (user_id, company_id, role_id, access_level)
+                SELECT $5, id, 1, 'limited'  -- Assign "limited" access with role_id 1 for the user in the new company
+                FROM new_company
+                RETURNING id
+            )
+            SELECT id, name, name_alias, description, contact_info
+            FROM new_company;
+        "#;
+
+            let insert_stmt = Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                insert_sql,
+                vec![
+                    name.clone().into(),         // $1 - Company name
+                    name_alias.clone().into(),   // $2 - Company alias
+                    description.clone().into(),  // $3 - Company description
+                    contact_info.clone().into(), // $4 - Company contact information
+                    user_id.into(),              // $5 - User ID for UserCompany assignment
+                ],
+            );
+
+            // Execute the insert statement
+            match db.query_one(insert_stmt).await {
+                Ok(Some(row)) => {
+                    // Successfully created company, extract details from the result
+                    let company = companies::Model {
+                        id: row.try_get("", "id")?,
+                        name: row.try_get("", "name")?,
+                        name_alias: row.try_get("", "name_alias")?,
+                        description: row.try_get("", "description")?,
+                        contact_info: row.try_get("", "contact_info")?,
+                    };
+                    return Ok(company);
+                }
+                Ok(None) => {
+                    // If no row was returned, return an error indicating the failure
+                    return Err(CoreErrors::DatabaseServiceError(
+                        "Failed to create company".to_string(),
+                    ));
+                }
+                Err(err) => return Err(err.into()), // For other errors, convert them into CoreErrors
+            }
+        }
+    }
+
+    // pub async fn get_user_company(
+    //     db: &DbConn,
+    //     user_id: i32,
+    //     company_id: i32,
+    // ) -> Result<Option<UserCompany>, CoreErrors> {
+    // }
+}
+
+fn convert_to_identifier(input: &str) -> String {
+    input
+        .chars()
+        .filter(|c| c.is_alphanumeric()) // Keep only alphanumeric characters
+        .collect::<String>()
+        .to_lowercase() // Convert to lowercase
 }

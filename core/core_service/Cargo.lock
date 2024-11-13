@@ -685,6 +685,7 @@ name = "core_database"
 version = "0.1.0"
 dependencies = [
  "core_error",
+ "rand",
  "sea-orm",
 ]
 
