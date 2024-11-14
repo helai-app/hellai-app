@@ -141,11 +141,64 @@ impl CompaniesService for MyServer {
         Err(Status::permission_denied("permission_denied"))
     }
 
+    /// Removes a specified user from a company if the authenticated user has the required permissions.
+    ///
+    /// This function checks if the authenticated user is authorized to remove the specified user from the company.
+    /// If the user is authorized (either removing themselves or having a sufficiently privileged role),
+    /// it proceeds with the removal and returns a success response. If unauthorized, it returns a permission error.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - A gRPC request containing `UserCompanyModificationRequest`, which includes
+    ///   the ID of the user to be removed and the company ID.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Response<StatusResponse>, Status>` - A response indicating success if the user was removed,
+    ///   or a permission error if the authenticated user lacks the required authorization.
     async fn remove_user_from_company(
         &self,
         request: Request<UserCompanyModificationRequest>,
     ) -> Result<Response<StatusResponse>, Status> {
-        todo!();
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received remove user request: {:?}", request);
+
+        // Step 1: Authenticate the user by extracting their ID from the auth token in request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Unwrap the request to access the inner data
+        let request = request.into_inner();
+
+        // Establish a database connection
+        let conn = &self.connection;
+
+        // Step 2: Check if the authenticated user is trying to remove themselves
+        if user_id_from_token as i32 == request.user_id {
+            // User is removing themselves, proceed with the removal
+            CompaniesQuery::remove_user_from_company(conn, request.user_id, request.company_id)
+                .await?;
+        } else {
+            // Step 3: Verify that the authenticated user has the required permissions to remove other users
+            let user_company_access =
+                check_company_permission(conn, user_id_from_token as i32, request.company_id)
+                    .await?;
+
+            // Permission level check - allow access if the user's role is sufficiently privileged (role_id <= 2)
+            if user_company_access.role_id <= 2 {
+                // Authorized to remove the specified user, proceed with removal
+                CompaniesQuery::remove_user_from_company(conn, request.user_id, request.company_id)
+                    .await?;
+            } else {
+                // Log and return a permission denied error if the user lacks authorization
+                event!(target: "hellai_app_core_events", Level::DEBUG, "Permission denied for removing user");
+                return Err(Status::permission_denied("permission_denied"));
+            }
+        }
+
+        // Step 4: Prepare a success response indicating the user was removed
+        let response = Response::new(StatusResponse { success: true });
+
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Response: {:?}", response);
+        Ok(response)
     }
 
     async fn delete_company(

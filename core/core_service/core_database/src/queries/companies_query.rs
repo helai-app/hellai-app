@@ -358,47 +358,112 @@ impl CompaniesQuery {
         Ok(company)
     }
 
+    /// Adds a user to a company or updates their role if they are already associated with the company.
+    ///
+    /// This function checks if the specified user is already assigned a role within the given company.
+    /// If they are, it updates their role to "Manager" (role ID 3). If they are not yet associated,
+    /// it creates a new association with the "Manager" role and limited access level.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - The database connection reference.
+    /// * `user_id` - The ID of the user to be added or updated within the company.
+    /// * `company_id` - The ID of the company to which the user is being added.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<user_company::Model, CoreErrors>` - Returns the `user_company::Model` representing
+    ///   the user's association with the company, whether it was created or updated successfully.
     pub async fn add_user_to_company(
         db: &DbConn,
         user_id: i32,
         company_id: i32,
     ) -> Result<user_company::Model, CoreErrors> {
-        // Step 1: Check if the user already has a role in the specified company
+        // Step 1: Check if the user already has an existing role in the specified company
         let existing_access = user_company::Entity::find()
             .filter(user_company::Column::UserId.eq(user_id)) // Filter by user ID
             .filter(user_company::Column::CompanyId.eq(company_id)) // Filter by company ID
             .one(db)
             .await?;
 
-        // Step 2: Update or insert the user's role and access level in the company
+        // Step 2: Determine whether to update the existing role or create a new association
         let result = match existing_access {
             Some(access) => {
-                // If a role already exists, convert it to an active model for modification
+                // User already has a role; convert the record to an active model for updating
                 let mut active_role = access.into_active_model();
 
-                // Set the role ID to 3, representing the "Manager" role (assumed to be a middle-level role)
+                // Update the role to "Manager" (role ID 3) for a middle-level management role
                 active_role.role_id = Set(3);
 
-                // Update the existing role in the database
+                // Update the existing record in the database and return the updated model
                 active_role.update(db).await?
             }
             None => {
-                // If no existing role, create a new role assignment with "Manager" role and limited access
+                // No existing role found; create a new association with "Manager" role and limited access
                 let new_access = user_company::ActiveModel {
                     user_id: Set(user_id),
                     company_id: Set(company_id),
-                    role_id: Set(3), // Assign role ID 3 as "Manager"
-                    access_level: Set(AccessLevelType::Limited), // Set access level to limited
-                    ..Default::default()  // Use default values for other fields
+                    role_id: Set(3), // Set role ID to 3 for "Manager"
+                    access_level: Set(AccessLevelType::Limited), // Assign limited access level
+                    ..Default::default()  // Set other fields to default values
                 };
 
-                // Insert the new role assignment into the database
+                // Insert the new role assignment into the database and return the inserted model
                 new_access.insert(db).await?
             }
         };
 
-        // Return the successfully created or updated user-company association
+        // Return the created or updated user-company association model
         Ok(result)
+    }
+
+    /// Removes a user from a specified company if they have an existing role or association.
+    ///
+    /// This function checks if the user is associated with the given company.
+    /// If an association is found, it deletes the user’s record from the company.
+    /// If no association exists, it returns a `CoreErrors::DatabaseServiceError`.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A reference to the database connection.
+    /// * `user_id` - The ID of the user to be removed from the company.
+    /// * `company_id` - The ID of the company from which the user is being removed.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` if the user is successfully removed,
+    ///   or a `CoreErrors::DatabaseServiceError` if no association exists or another error occurs.
+    pub async fn remove_user_from_company(
+        db: &DbConn,
+        user_id: i32,
+        company_id: i32,
+    ) -> Result<(), CoreErrors> {
+        // Step 1: Check if the user has an existing role in the specified company
+        let existing_access = user_company::Entity::find()
+            .filter(user_company::Column::UserId.eq(user_id)) // Filter by user ID
+            .filter(user_company::Column::CompanyId.eq(company_id)) // Filter by company ID
+            .one(db)
+            .await?;
+
+        // Step 2: If an association exists, delete it; otherwise, return an error
+        match existing_access {
+            Some(access) => {
+                // Convert the record to an active model to enable deletion
+                let active_role = access.into_active_model();
+
+                // Delete the existing record from the database
+                active_role.delete(db).await?
+            }
+            None => {
+                // Return an error if no user-company association exists
+                return Err(CoreErrors::DatabaseServiceError(
+                    "User not associated with the specified company".to_string(),
+                ));
+            }
+        };
+
+        // Return success if the user was successfully removed
+        Ok(())
     }
 }
 
