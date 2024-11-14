@@ -201,10 +201,56 @@ impl CompaniesService for MyServer {
         Ok(response)
     }
 
+    /// Deletes a specified company and all associated users if the authenticated user has the "Owner" role.
+    ///
+    /// This function checks if the authenticated user has the "Owner" role for the specified company.
+    /// If authorized, it deletes the company and removes all associated users. If unauthorized, it returns
+    /// a permission denied error.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - A gRPC request containing `DeleteCompanyRequest`, which includes the company ID to be deleted.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Response<StatusResponse>, Status>` - A success response if the company and associated users are deleted,
+    ///   or a permission denied error if the user lacks the required authorization.
     async fn delete_company(
         &self,
         request: Request<DeleteCompanyRequest>,
     ) -> Result<Response<StatusResponse>, Status> {
-        todo!();
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received delete company request: {:?}", request);
+
+        // Step 1: Authenticate the user and extract their ID from the auth token in the request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Unwrap the request to access the inner data
+        let request = request.into_inner();
+
+        // Step 2: Establish a database connection
+        let conn = &self.connection;
+
+        // Step 3: Verify if the authenticated user has the "Owner" role for the specified company
+
+        let user_company_access =
+            check_company_permission(conn, user_id_from_token as i32, request.company_id).await?;
+
+        // Step 4: Proceed with deletion only if the user has the "Owner" role (role_id == 1)
+        if user_company_access.role_id == 1 {
+            // Delete the specified company
+            CompaniesQuery::delete_company(conn, request.company_id).await?;
+            // Delete all user associations with the specified company
+            CompaniesQuery::delete_all_users_from_company(conn, request.company_id).await?;
+
+            // Step 5: Construct a success response indicating successful deletion
+            let response = Response::new(StatusResponse { success: true });
+
+            event!(target: "hellai_app_core_events", Level::DEBUG, "Company and associated users deleted successfully. Response: {:?}", response);
+            Ok(response)
+        } else {
+            // Log and return a permission denied error if the user lacks "Owner" role authorization
+            event!(target: "hellai_app_core_events", Level::DEBUG, "Permission denied: User lacks 'Owner' role to delete company");
+            Err(Status::permission_denied("permission_denied"))
+        }
     }
 }

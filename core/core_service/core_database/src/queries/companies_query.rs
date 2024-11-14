@@ -2,7 +2,7 @@ use core_error::core_errors::CoreErrors;
 use rand::Rng;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DbBackend, DbConn,
-    EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Set, Statement,
+    DeleteResult, EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Set, Statement,
 };
 
 use crate::entity::{companies, sea_orm_active_enums::AccessLevelType, user_company};
@@ -463,6 +463,54 @@ impl CompaniesQuery {
         };
 
         // Return success if the user was successfully removed
+        Ok(())
+    }
+
+    pub async fn delete_company(db: &DbConn, company_id: i32) -> Result<(), CoreErrors> {
+        // Step 1: Check if the user has an existing role in the specified company
+        let company = companies::Entity::find_by_id(company_id).one(db).await?;
+
+        match company {
+            Some(company) => {
+                let active_company = company.into_active_model();
+
+                active_company.delete(db).await?
+            }
+            None => {
+                // Return an error if no user-company association exists
+                return Err(CoreErrors::DatabaseServiceError(
+                    "User not associated with the specified company".to_string(),
+                ));
+            }
+        };
+
+        // Return success if the user was successfully removed
+        Ok(())
+    }
+
+    /// Deletes all user associations from the specified company.
+    ///
+    /// This function removes all records from the `user_company` table where the `company_id` matches
+    /// the specified company ID, effectively removing all users from the company.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A reference to the database connection.
+    /// * `company_id` - The ID of the company from which all users will be removed.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` if all users were successfully removed,
+    ///   or a `CoreErrors` error if the operation fails.
+    pub async fn delete_all_users_from_company(
+        db: &DbConn,
+        company_id: i32,
+    ) -> Result<(), CoreErrors> {
+        // Delete all user-company associations for the specified company ID
+        let _: DeleteResult = user_company::Entity::delete_many()
+            .filter(user_company::Column::CompanyId.eq(company_id)) // Filter by company ID
+            .exec(db)
+            .await?;
         Ok(())
     }
 }
