@@ -213,6 +213,6 @@ impl ProjectsService for MyServer {
 //     // Ensure that the user has "Owner" level permission (project_role_id == 1)
 //     match user_role_in_project {
 //         Some(user_role) if user_role.project_role_id == 1 => Ok(()),
-//         _ => Err(Status::permission_denied("insufficient_rights")),
+//         _ => Err(Status::permission_denied("permission_denied")),
 //     }
 // }

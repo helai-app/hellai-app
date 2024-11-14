@@ -1,8 +1,11 @@
 use core_error::core_errors::CoreErrors;
 use rand::Rng;
-use sea_orm::{ConnectionTrait, DatabaseBackend, DbBackend, DbConn, FromQueryResult, Statement};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DbBackend, DbConn,
+    EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Set, Statement,
+};
 
-use crate::entity::companies;
+use crate::entity::{companies, sea_orm_active_enums::AccessLevelType, user_company};
 
 /// User Company with projects
 pub struct UserCompany {
@@ -280,7 +283,7 @@ impl CompaniesQuery {
             ),
             inserted_user_company AS (
                 INSERT INTO user_company (user_id, company_id, role_id, access_level)
-                SELECT $5, id, 1, 'limited'  -- Assign "limited" access with role_id 1 for the user in the new company
+                SELECT $5, id, 1, 'full'  -- Assign "full" access with role_id 1 for the user in the new company
                 FROM new_company
                 RETURNING id
             )
@@ -324,12 +327,79 @@ impl CompaniesQuery {
         }
     }
 
-    // pub async fn get_user_company(
-    //     db: &DbConn,
-    //     user_id: i32,
-    //     company_id: i32,
-    // ) -> Result<Option<UserCompany>, CoreErrors> {
-    // }
+    /// Retrieves a specific user's association with a company based on user and company IDs.
+    ///
+    /// This function checks if a given user is associated with a specific company by querying
+    /// the `user_company` table. If the user-company relationship exists, it returns the `user_company`
+    /// model; otherwise, it returns `None`.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A reference to the database connection.
+    /// * `user_id` - The ID of the user whose company association is being queried.
+    /// * `company_id` - The ID of the company to check for association with the user.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Option<user_company::Model>, CoreErrors>` - Returns an `Option` containing the
+    ///   `user_company::Model` if the user-company association exists, or `None` if not found.
+    ///   Returns `CoreErrors` in case of any database query failure.
+    pub async fn get_user_company(
+        db: &DbConn,
+        user_id: i32,
+        company_id: i32,
+    ) -> Result<Option<user_company::Model>, CoreErrors> {
+        let company: Option<user_company::Model> = user_company::Entity::find()
+            .filter(user_company::Column::UserId.eq(user_id))
+            .filter(user_company::Column::CompanyId.eq(company_id))
+            .one(db)
+            .await?;
+
+        Ok(company)
+    }
+
+    pub async fn add_user_to_company(
+        db: &DbConn,
+        user_id: i32,
+        company_id: i32,
+    ) -> Result<user_company::Model, CoreErrors> {
+        // Step 1: Check if the user already has a role in the specified company
+        let existing_access = user_company::Entity::find()
+            .filter(user_company::Column::UserId.eq(user_id)) // Filter by user ID
+            .filter(user_company::Column::CompanyId.eq(company_id)) // Filter by company ID
+            .one(db)
+            .await?;
+
+        // Step 2: Update or insert the user's role and access level in the company
+        let result = match existing_access {
+            Some(access) => {
+                // If a role already exists, convert it to an active model for modification
+                let mut active_role = access.into_active_model();
+
+                // Set the role ID to 3, representing the "Manager" role (assumed to be a middle-level role)
+                active_role.role_id = Set(3);
+
+                // Update the existing role in the database
+                active_role.update(db).await?
+            }
+            None => {
+                // If no existing role, create a new role assignment with "Manager" role and limited access
+                let new_access = user_company::ActiveModel {
+                    user_id: Set(user_id),
+                    company_id: Set(company_id),
+                    role_id: Set(3), // Assign role ID 3 as "Manager"
+                    access_level: Set(AccessLevelType::Limited), // Set access level to limited
+                    ..Default::default()  // Use default values for other fields
+                };
+
+                // Insert the new role assignment into the database
+                new_access.insert(db).await?
+            }
+        };
+
+        // Return the successfully created or updated user-company association
+        Ok(result)
+    }
 }
 
 fn convert_to_identifier(input: &str) -> String {

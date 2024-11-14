@@ -9,6 +9,7 @@ use crate::{
         UserCompanyModificationRequest,
     },
     middleware::{
+        access_check::check_company_permission,
         interceptors,
         validators::{
             empty_validation, max_symbols_validator_20, min_symbols_validator_3,
@@ -21,31 +22,47 @@ use crate::{
 // Implementing the CompaniesService trait for MyServer
 #[tonic::async_trait]
 impl CompaniesService for MyServer {
+    /// Creates a new company with validated name and assigns the authenticated user as the creator.
+    ///
+    /// This function validates the provided company name, creates a new company record in the database,
+    /// and assigns the authenticated user as part of the company. It then returns a response with the
+    /// new company's details.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - A gRPC request containing `CreateCompanyRequest`, which includes the company name, description, and contact information.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Response<CreateCompanyResponse>, Status>` - A response with the newly created company's information,
+    ///   or a `Status` error if validation or creation fails.
     async fn create_company(
         &self,
         request: Request<CreateCompanyRequest>,
     ) -> Result<Response<CreateCompanyResponse>, Status> {
-        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received create company request: {:?}", request);
 
+        // Step 1: Extract user ID from auth token in request metadata for authentication
         let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
 
         // Unwrap the request to access its inner data
         let request = request.into_inner();
-        // Extract user ID from auth token in request metadata
 
-        // Validate project name using composite validator
-        let composite_validator = CompositValidator::new(vec![
-            empty_validation,
-            min_symbols_validator_3,
-            max_symbols_validator_20,
-            no_special_symbols_validator,
-        ]);
-
-        let validated_project_name = composite_validator.validate(request.name)?;
-
-        // Extract database connection
+        // Step 2: Establish a database connection
         let conn = &self.connection;
 
+        // Step 3: Validate company name using a composite validator with multiple checks
+        let composite_validator = CompositValidator::new(vec![
+            empty_validation,             // Ensure name is not empty
+            min_symbols_validator_3,      // Ensure name has at least 3 characters
+            max_symbols_validator_20,     // Ensure name has no more than 20 characters
+            no_special_symbols_validator, // Ensure name contains no special symbols
+        ]);
+
+        // Run the validation and capture the validated name
+        let validated_project_name = composite_validator.validate(request.name)?;
+
+        // Step 4: Create a new company record in the database using the validated name
         let company = CompaniesQuery::create_new_company(
             conn,
             user_id_from_token as i32,
@@ -55,7 +72,7 @@ impl CompaniesService for MyServer {
         )
         .await?;
 
-        // Create success response
+        // Step 5: Construct a success response with the new company details
         let response = Response::new(CreateCompanyResponse {
             company_id: company.id,
             name: company.name,
@@ -63,16 +80,65 @@ impl CompaniesService for MyServer {
             contact_info: company.contact_info,
         });
 
-        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Created company response: {:?}", response);
 
         Ok(response)
     }
 
+    /// Adds a user to a company with a specified role, if the current user has the required permissions.
+    ///
+    /// This function verifies that the authenticated user has permission to add other users to a company.
+    /// If permission is granted, it adds the specified user to the company and returns their information.
+    /// Otherwise, it returns a permission denied error.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - A gRPC request containing `UserCompanyModificationRequest`, which includes
+    ///   the ID of the user to be added and the company ID.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Response<CompanyUserInfoResponse>, Status>` - A response with the user's company info
+    ///   if successful, or a permission denied error if the user lacks authorization.
     async fn add_user_to_company(
         &self,
         request: Request<UserCompanyModificationRequest>,
     ) -> Result<Response<CompanyUserInfoResponse>, Status> {
-        todo!();
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received request: {:?}", request);
+
+        // Step 1: Authenticate the user by extracting their ID from the auth token in request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Unwrap the request to access the inner data
+        let request = request.into_inner();
+
+        // Step 2: Establish a database connection
+        let conn = &self.connection;
+
+        // Step 3: Check if the authenticated user has permission to modify the company's users
+        let user_company_access =
+            check_company_permission(conn, user_id_from_token as i32, request.company_id).await?;
+
+        // Permission level check - allow access if the user's role is sufficiently privileged (role_id <= 2)
+        if user_company_access.role_id <= 2 {
+            // Step 4: Add the specified user to the company with the necessary permissions
+            let user_company =
+                CompaniesQuery::add_user_to_company(conn, request.user_id, request.company_id)
+                    .await?;
+
+            // Step 5: Prepare the response with the new user's role information
+            let response = Response::new(CompanyUserInfoResponse {
+                user_id: user_company.user_id,
+                user_role: user_company.role_id - 1, // Adjust to match the gRPC enum by subtracting 1
+            });
+
+            event!(target: "hellai_app_core_events", Level::DEBUG, "Response: {:?}", response);
+            return Ok(response);
+        }
+
+        // Log and return a permission denied error if the user lacks authorization
+        event!(target: "hellai_app_core_events", Level::DEBUG, "permission_denied");
+        Err(Status::permission_denied("permission_denied"))
     }
 
     async fn remove_user_from_company(
