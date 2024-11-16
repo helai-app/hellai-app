@@ -9,7 +9,7 @@ use crate::{
         UserProjectModificationRequest,
     },
     middleware::{
-        access_check::check_company_permission,
+        access_check::{check_company_permission, check_project_permission},
         interceptors,
         validators::{
             empty_validation, hex_color_validator, max_symbols_validator_20,
@@ -111,11 +111,59 @@ impl ProjectsService for MyServer {
         }
     }
 
+    /// Adds a user to a project if the authenticated user has sufficient permissions.
+    ///
+    /// This function checks if the authenticated user has a role with sufficient privileges in the project.
+    /// If authorized, it adds the specified user to the project and returns a success response with the user's role.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - A gRPC request containing `UserProjectModificationRequest`, which includes
+    ///   the user ID and project ID to modify.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Response<ProjectUserInfoResponse>, Status>` - A response containing the added user's information,
+    ///   or a permission denied error if the user lacks sufficient privileges.
     async fn add_user_to_project(
         &self,
         request: Request<UserProjectModificationRequest>,
     ) -> Result<Response<ProjectUserInfoResponse>, Status> {
-        todo!()
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received add user to project request: {:?}", request);
+
+        // Step 1: Authenticate the user by extracting their ID from the auth token in request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Unwrap the request to access the inner data
+        let request = request.into_inner();
+
+        // Step 2: Establish a database connection
+        let conn = &self.connection;
+
+        // Step 3: Check if the authenticated user has sufficient permissions for the specified project
+        let user_company_access =
+            check_project_permission(conn, user_id_from_token as i32, request.project_id).await?;
+
+        // Permission level check - allow access if the user's role is sufficiently privileged (role_id <= 2)
+        if user_company_access.user_role.id <= 2 {
+            // Step 4: Add the specified user to the project
+            let user_access =
+                ProjectQuery::add_user_to_project(conn, request.user_id, request.project_id)
+                    .await?;
+
+            // Step 5: Construct a success response with the added user's information
+            let response = Response::new(ProjectUserInfoResponse {
+                user_id: user_access.user_id,
+                user_role: user_access.role_id.unwrap_or(0) - 1, // Adjust to match the gRPC enum by subtracting 1
+            });
+
+            event!(target: "hellai_app_core_events", Level::DEBUG, "User added to project successfully. Response: {:?}", response);
+            Ok(response)
+        } else {
+            // Log and return a permission denied error if the user's role is not sufficiently privileged
+            event!(target: "hellai_app_core_events", Level::DEBUG, "Permission denied: User lacks sufficient role level to add users to project");
+            Err(Status::permission_denied("permission_denied"))
+        }
     }
 
     async fn remove_user_from_project(

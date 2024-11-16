@@ -1,4 +1,10 @@
-use core_database::{entity::user_company, queries::companies_query::CompaniesQuery};
+use core_database::{
+    entity::user_company,
+    queries::{
+        companies_query::CompaniesQuery,
+        projects_query::{ProjectQuery, UserProject},
+    },
+};
 use sea_orm::DbConn;
 use tonic::Status;
 
@@ -14,6 +20,22 @@ pub async fn check_company_permission(
     // Ensure that the user has "Owner" level permission (project_role_id == 1)
     match user_company {
         Some(company) => return Ok(company),
+        None => Err(Status::permission_denied("permission_denied")),
+    }
+}
+
+// If user have access to company return it
+pub async fn check_project_permission(
+    conn: &DbConn,
+    user_id: i32,
+    project_id: i32,
+) -> Result<UserProject, Status> {
+    // Retrieve the user's role in the project from the database
+    let user_project = ProjectQuery::get_user_project(conn, user_id, project_id).await?;
+
+    // Ensure that the user has "Owner" level permission (project_role_id == 1)
+    match user_project {
+        Some(project) => return Ok(project),
         None => Err(Status::permission_denied("permission_denied")),
     }
 }
