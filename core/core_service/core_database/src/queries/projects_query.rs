@@ -1,6 +1,5 @@
 use core_error::core_errors::CoreErrors;
 
-use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DbBackend, DbConn,
     EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Set, Statement,
@@ -98,36 +97,48 @@ impl ProjectQuery {
         Ok(user_projects)
     }
 
-    /// Creates a new project with the given name and assigns the creator as the owner.
+    /// Creates a new project within a specified company and optionally assigns user access.
+    ///
+    /// This function uses Common Table Expressions (CTEs) to insert a new project into the `projects` table.
+    /// If the user's role ID is 3 or higher, the user is also added to the `user_access` table with full access.
     ///
     /// # Arguments
     ///
-    /// * `db` - The database connection.
-    /// * `name` - The name of the new project.
-    /// * `user_id` - The ID of the user creating the project, who will be assigned the owner role.
+    /// * `db` - A reference to the database connection.
+    /// * `company_id` - The ID of the company to which the project belongs.
+    /// * `title` - The title of the project.
+    /// * `description` - A description of the project.
+    /// * `decoration_color` - A decoration color for the project.
+    /// * `user_id` - The ID of the user creating the project.
+    /// * `role_id` - The role ID of the user. If the role ID is 3 or higher, user access is added.
     ///
     /// # Returns
     ///
-    /// The created `projects::Model`, or an error of type `CoreErrors`.
+    /// * `Result<projects::Model, CoreErrors>` - Returns the created project model on success,
+    ///   or an error of type `CoreErrors` if the operation fails.
     pub async fn create_project(
         db: &DbConn,
-        name: String,
+        company_id: i32,
+        title: String,
+        description: String,
+        decoration_color: String,
         user_id: i32,
+        role_id: i32, // If role_id >= 3, add an entry in UserAccess
     ) -> Result<projects::Model, CoreErrors> {
-        // Define the SQL statement using Common Table Expressions (CTEs)
+        // SQL statement using Common Table Expressions (CTEs)
         let sql = r#"
         WITH new_project AS (
-            INSERT INTO projects (name)
-            VALUES ($1)
-            RETURNING id, name
+            INSERT INTO projects (company_id, title, description, decoration_color, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+            RETURNING id, company_id, title, description, decoration_color, created_at, updated_at
         ),
-        inserted_user_project_role AS (
-            INSERT INTO user_project_roles (user_id, project_id, project_role_id)
-            SELECT $2, id, 1
+        user_access AS (
+            INSERT INTO user_access (user_id, company_id, project_id, role_id, access_level, created_at)
+            SELECT $5, NULL, id, 1, 'full', CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
             FROM new_project
-            RETURNING id
+            WHERE $6 >= 3 -- Add to UserAccess only if role_id is 3 or higher
         )
-        SELECT id, name
+        SELECT id, company_id, title, description, decoration_color, created_at, updated_at
         FROM new_project;
     "#;
 
@@ -135,7 +146,14 @@ impl ProjectQuery {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             sql,
-            vec![name.into(), user_id.into()],
+            vec![
+                company_id.into(),       // $1 - Company ID
+                title.into(),            // $2 - Project title
+                description.into(),      // $3 - Project description
+                decoration_color.into(), // $4 - Decoration color
+                user_id.into(),          // $5 - User ID
+                role_id.into(),          // $6 - Role ID
+            ],
         );
 
         // Execute the SQL statement and get the result
@@ -143,29 +161,22 @@ impl ProjectQuery {
 
         // Extract the project details from the query result
         let project = if let Some(row) = project_result {
-            let id: i32 = row.try_get("", "id")?;
-            let company_id: i32 = row.try_get("", "company_id")?;
-            let title: String = row.try_get("", "title")?;
-            let description: Option<String> = row.try_get("", "description")?;
-            let decoration_color: Option<String> = row.try_get("", "decoration_color")?;
-            let created_at: DateTimeWithTimeZone = row.try_get("", "created_at")?;
-            let updated_at: DateTimeWithTimeZone = row.try_get("", "updated_at")?;
-
             projects::Model {
-                id,
-                company_id: company_id,
-                title: title,
-                description: description,
-                decoration_color: decoration_color,
-                created_at: created_at,
-                updated_at: updated_at,
+                id: row.try_get("", "id")?,                             // Project ID
+                company_id: row.try_get("", "company_id")?,             // Company ID
+                title: row.try_get("", "title")?,                       // Project title
+                description: row.try_get("", "description")?, // Project description (optional)
+                decoration_color: row.try_get("", "decoration_color")?, // Decoration color (optional)
+                created_at: row.try_get("", "created_at")?,             // Creation timestamp
+                updated_at: row.try_get("", "updated_at")?,             // Update timestamp
             }
         } else {
             return Err(CoreErrors::DatabaseServiceError(
-                "failed_create_project".to_string(),
+                "Failed to create project".to_string(),
             ));
         };
 
+        // Return the created project
         Ok(project)
     }
 

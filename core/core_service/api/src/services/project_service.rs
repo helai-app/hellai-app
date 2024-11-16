@@ -1,33 +1,21 @@
+use core_database::queries::projects_query::ProjectQuery;
 use core_debugger::tracing::{event, Level};
-// use core_database::queries::projects_query::ProjectQuery;
-// use core_debugger::tracing::{event, Level};
-use sea_orm::DbConn;
 use tonic::{Request, Response, Status};
 
-// use crate::{
-//     helai_api_core_service::{
-//         projects_service_server::ProjectsService, CreateProjectRequest, CreateProjectResponse,
-//         DeleteProjectRequest, ProjectUserInfoResponse, StatusResponse,
-//         UserProjectModificationRequest,
-//     },
-//     middleware::{
-//         interceptors,
-//         validators::{
-//             empty_validation, max_symbols_validator_20, min_symbols_validator_3,
-//             no_special_symbols_validator, CompositValidator,
-//         },
-//     },
-//     my_server::MyServer,
-// };
 use crate::{
     helai_api_core_service::{
         projects_service_server::ProjectsService, CreateProjectRequest, CreateProjectResponse,
         DeleteProjectRequest, ProjectUserInfoResponse, StatusResponse,
         UserProjectModificationRequest,
     },
-    middleware::validators::{
-        empty_validation, max_symbols_validator_20, min_symbols_validator_3,
-        no_special_symbols_validator, CompositValidator,
+    middleware::{
+        access_check::check_company_permission,
+        interceptors,
+        validators::{
+            empty_validation, hex_color_validator, max_symbols_validator_20,
+            max_symbols_validator_250, min_symbols_validator_3, no_special_symbols_validator,
+            CompositValidator,
+        },
     },
     my_server::MyServer,
 };
@@ -35,26 +23,92 @@ use crate::{
 // Implementing the ProjectsService trait for MyServer
 #[tonic::async_trait]
 impl ProjectsService for MyServer {
+    /// Handles the creation of a new project within a specified company.
+    ///
+    /// This function validates the provided project details, checks if the user has sufficient permissions,
+    /// and creates the project in the database if authorized.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - A gRPC request containing `CreateProjectRequest`, which includes the project details and company ID.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Response<CreateProjectResponse>, Status>` - A response containing the newly created project's details,
+    ///   or a permission denied error if the user lacks authorization.
     async fn create_project(
         &self,
         request: Request<CreateProjectRequest>,
     ) -> Result<Response<CreateProjectResponse>, Status> {
-        event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received create project request: {:?}", request);
 
-        // Unwrap the request to access its inner data
+        // Step 1: Authenticate the user by extracting their ID from the auth token in request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Unwrap the request to access the inner data
         let request = request.into_inner();
 
-        // Validate project name using composite validator
-        let composite_validator = CompositValidator::new(vec![
+        // Step 2: Validate the project details using composite validators
+        let composite_validator_title = CompositValidator::new(vec![
             empty_validation,
             min_symbols_validator_3,
             max_symbols_validator_20,
             no_special_symbols_validator,
         ]);
 
-        let validated_project_name = composite_validator.validate(request.project_name)?;
+        let composite_validator_description = CompositValidator::new(vec![
+            empty_validation,
+            min_symbols_validator_3,
+            max_symbols_validator_250,
+        ]);
 
-        todo!()
+        let composite_validator_hex_color =
+            CompositValidator::new(vec![empty_validation, hex_color_validator]);
+
+        // Validate each field and handle errors if any
+        let validated_project_title = composite_validator_title.validate(request.title)?;
+        let validated_project_description =
+            composite_validator_description.validate(request.description)?;
+        let validated_project_decoration_color =
+            composite_validator_hex_color.validate(request.decoration_color)?;
+
+        // Step 3: Establish a database connection
+        let conn = &self.connection;
+
+        // Step 4: Check if the authenticated user has sufficient permissions for the specified company
+        let user_company_access =
+            check_company_permission(conn, user_id_from_token as i32, request.company_id).await?;
+
+        // Permission level check - allow access if the user's role is sufficiently privileged (role_id <= 3)
+        if user_company_access.role_id <= 3 {
+            // Step 5: Create a new project in the database
+            let new_project = ProjectQuery::create_project(
+                conn,
+                request.company_id,
+                validated_project_title,
+                validated_project_description,
+                validated_project_decoration_color,
+                user_id_from_token as i32,
+                user_company_access.role_id,
+            )
+            .await?;
+
+            // Step 6: Construct a success response with the new project details
+            let response = Response::new(CreateProjectResponse {
+                project_id: new_project.id,
+                company_id: new_project.company_id,
+                title: new_project.title,
+                description: new_project.description.unwrap_or_default(),
+                decoration_color: new_project.decoration_color.unwrap_or_default(),
+            });
+
+            event!(target: "hellai_app_core_events", Level::DEBUG, "Project created successfully. Response: {:?}", response);
+            Ok(response)
+        } else {
+            // Log and return a permission denied error if the user lacks sufficient privileges
+            event!(target: "hellai_app_core_events", Level::DEBUG, "Permission denied: User lacks sufficient privileges to create project");
+            Err(Status::permission_denied("permission_denied"))
+        }
     }
 
     async fn add_user_to_project(

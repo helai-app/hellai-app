@@ -25,20 +25,18 @@ service ProjectsService {
 // Request message for creating a new project
 message CreateProjectRequest {
   int32 company_id = 1;        // ID of the associated company
-  string project_name = 2;     // Name of the project
-  string title = 3;            // Title of the project
-  string description = 4;      // Description of the project
-  string decoration_color = 5; // Color for project decoration
+  string title = 2;            // Title of the project
+  string description = 3;      // Description of the project
+  string decoration_color = 4; // Color for project decoration
 }
 
 // Response message after creating a new project
 message CreateProjectResponse {
   int32 project_id = 1;        // Unique identifier of the created project
   int32 company_id = 2;        // ID of the associated company
-  string project_name = 3;     // Name of the project
-  string title = 4;            // Title of the project
-  string description = 5;      // Description of the project
-  string decoration_color = 6; // Color for project decoration
+  string title = 3;            // Title of the project
+  string description = 4;      // Description of the project
+  string decoration_color = 5; // Color for project decoration
 }
 
 // Request message for modifying user-project relationships
