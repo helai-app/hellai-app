@@ -174,8 +174,13 @@ impl CompaniesService for MyServer {
         // Step 2: Check if the authenticated user is trying to remove themselves
         if user_id_from_token as i32 == request.user_id {
             // User is removing themselves, proceed with the removal
-            CompaniesQuery::remove_user_from_company(conn, request.user_id, request.company_id)
-                .await?;
+            CompaniesQuery::remove_user_from_company(
+                conn,
+                request.user_id,
+                request.company_id,
+                None,
+            )
+            .await?;
         } else {
             // Step 3: Verify that the authenticated user has the required permissions to remove other users
             let user_company_access =
@@ -185,8 +190,13 @@ impl CompaniesService for MyServer {
             // Permission level check - allow access if the user's role is sufficiently privileged (role_id <= 2)
             if user_company_access.role_id <= 2 {
                 // Authorized to remove the specified user, proceed with removal
-                CompaniesQuery::remove_user_from_company(conn, request.user_id, request.company_id)
-                    .await?;
+                CompaniesQuery::remove_user_from_company(
+                    conn,
+                    request.user_id,
+                    request.company_id,
+                    Some(user_company_access.role_id),
+                )
+                .await?;
             } else {
                 // Log and return a permission denied error if the user lacks authorization
                 event!(target: "hellai_app_core_events", Level::DEBUG, "Permission denied for removing user");
