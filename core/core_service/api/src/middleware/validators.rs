@@ -86,11 +86,6 @@ pub fn password_format_validation(password: String) -> Result<String, CoreErrors
             return Err(CoreErrors::DataValidationError(
                 "password_format_error_no_whitespace".to_string(),
             ));
-        } else {
-            // If there's a special character, return an error
-            return Err(CoreErrors::DataValidationError(
-                "password_format_error_invalid_character".to_string(),
-            ));
         }
     }
 

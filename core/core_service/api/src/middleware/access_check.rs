@@ -3,6 +3,7 @@ use core_database::{
     queries::{
         companies_query::CompaniesQuery,
         projects_query::{ProjectQuery, UserProject},
+        tasks_query::TasksQuery,
     },
 };
 use sea_orm::DbConn;
@@ -24,7 +25,7 @@ pub async fn check_company_permission(
     }
 }
 
-// If user have access to company return it
+// If user have access to project return it
 pub async fn check_project_permission(
     conn: &DbConn,
     user_id: i32,
@@ -33,9 +34,23 @@ pub async fn check_project_permission(
     // Retrieve the user's role in the project from the database
     let user_project = ProjectQuery::get_user_project(conn, user_id, project_id).await?;
 
-    // Ensure that the user has "Owner" level permission (project_role_id == 1)
     match user_project {
         Some(project) => return Ok(project),
         None => Err(Status::permission_denied("permission_denied")),
     }
 }
+
+// If user have access to project return it
+// pub async fn check_tasks_permission(
+//     conn: &DbConn,
+//     user_id: i32,
+//     task_id: i32,
+// ) -> Result<UserProject, Status> {
+//     // Retrieve the user's role in the project from the database
+//     let user_project = TasksQuery::get_user_task(conn, user_id, task_id).await?;
+
+//     match user_project {
+//         Some(project) => return Ok(project),
+//         None => Err(Status::permission_denied("permission_denied")),
+//     }
+// }
