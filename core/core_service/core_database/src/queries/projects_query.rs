@@ -452,13 +452,11 @@ impl ProjectQuery {
         db: &DbConn,
         project_id: i32,
     ) -> Result<(), CoreErrors> {
-        // Step 1: Attempt to delete all user associations for the specified project
         let _: DeleteResult = user_access::Entity::delete_many()
             .filter(user_access::Column::ProjectId.eq(project_id)) // Filter by project ID
             .exec(db)
             .await?;
 
-        // Step 3: Return success if the deletion was executed without errors
         Ok(())
     }
 }
