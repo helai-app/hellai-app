@@ -230,148 +230,56 @@ impl ProjectsService for MyServer {
         Ok(response)
     }
 
+    /// Deletes a specified project and all associated user roles if the authenticated user has the "Owner" role.
+    ///
+    /// This function verifies if the authenticated user has the "Owner" role for the project.
+    /// If authorized, it deletes the project and all user associations with the project.
+    /// If unauthorized, it returns a permission denied error.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - A gRPC request containing `DeleteProjectRequest`, which includes the project ID to delete.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Response<StatusResponse>, Status>` - A success response if the project and associated users are deleted,
+    ///   or a permission denied error if the user lacks sufficient privileges.
     async fn delete_project(
         &self,
         request: Request<DeleteProjectRequest>,
     ) -> Result<Response<StatusResponse>, Status> {
-        todo!()
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received delete project request: {:?}", request);
+
+        // Step 1: Authenticate the user by extracting their ID from the auth token in request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Step 2: Unwrap the request to access its inner data
+        let request = request.into_inner();
+
+        // Step 3: Establish a database connection
+        let conn = &self.connection;
+
+        // Step 4: Verify if the user has sufficient permissions to delete the project
+        let user_company_access =
+            check_project_permission(conn, user_id_from_token as i32, request.project_id).await?;
+
+        // Permission level check - allow deletion only if the user's role is "Owner" (role_id == 1)
+        if user_company_access.user_role.id == 1 {
+            // Step 5: Delete the specified project
+            ProjectQuery::delete_project(conn, request.project_id).await?;
+
+            // Step 6: Delete all user associations with the specified project
+            ProjectQuery::delete_all_users_from_project(conn, request.project_id).await?;
+
+            // Step 7: Construct and return a success response
+            let response = Response::new(StatusResponse { success: true });
+
+            event!(target: "hellai_app_core_events", Level::DEBUG, "Project and associated users deleted successfully. Response: {:?}", response);
+            Ok(response)
+        } else {
+            // Log and return a permission denied error if the user lacks the required "Owner" role
+            event!(target: "hellai_app_core_events", Level::DEBUG, "Permission denied: User lacks 'Owner' role to delete project");
+            Err(Status::permission_denied("permission_denied"))
+        }
     }
 }
-//     // Handle creating a new project
-//     async fn create_project(
-//         &self,
-//         request: Request<CreateProjectRequest>,
-//     ) -> Result<Response<CreateProjectResponse>, Status> {
-//         event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
-
-//         // Extract user ID from auth token in request metadata
-//         let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
-//         let conn = &self.connection;
-//         let request = request.into_inner();
-
-//         // Validate project name using composite validator
-//         let composite_validator = CompositValidator::new(vec![
-//             empty_validation,
-//             min_symbols_validator_3,
-//             max_symbols_validator_20,
-//             no_special_symbols_validator,
-//         ]);
-//         let validated_project_name = composite_validator.validate(request.project_name)?;
-
-//         // Create a new project in the database
-//         let new_project =
-//             ProjectQuery::create_project(conn, validated_project_name, user_id_from_token as i32)
-//                 .await?;
-
-//         // Create response with project details
-//         let reply = CreateProjectResponse {
-//             project_id: new_project.id,
-//             project_name: new_project.name,
-//         };
-//         let response = Response::new(reply);
-
-//         event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
-//         Ok(response)
-//     }
-
-//     // Handle deleting an existing project
-//     async fn delete_project(
-//         &self,
-//         request: Request<DeleteProjectRequest>,
-//     ) -> Result<Response<StatusResponse>, Status> {
-//         event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
-
-//         // Extract user ID from auth token in request metadata
-//         let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
-//         let conn = &self.connection;
-//         let request = request.into_inner();
-
-//         // Check if the user has permission to delete the project
-//         check_project_permission(conn, user_id_from_token as i32, request.project_id).await?;
-
-//         // Delete the project
-//         ProjectQuery::delete_project(conn, request.project_id).await?;
-
-//         // Create success response
-//         let response = Response::new(StatusResponse { success: true });
-
-//         event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
-//         Ok(response)
-//     }
-
-//     // Handle adding a user to a project
-//     async fn add_user_to_project(
-//         &self,
-//         request: Request<UserProjectModificationRequest>,
-//     ) -> Result<Response<ProjectUserInfoResponse>, Status> {
-//         event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
-
-//         // Extract user ID from auth token in request metadata
-//         let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
-//         let conn = &self.connection;
-//         let request = request.into_inner();
-
-//         let admin_id = user_id_from_token as i32;
-
-//         // Check if the current user has permission to add users to the project
-//         check_project_permission(conn, admin_id, request.project_id).await?;
-
-//         // Assign a role to the new user in the project (role ID 3 represents the assigned role)
-//         let user_role =
-//             ProjectQuery::set_user_project_role(conn, request.user_id, request.project_id, 3)
-//                 .await?;
-
-//         // Create response with updated user information
-//         let response = Response::new(ProjectUserInfoResponse {
-//             user_id: request.user_id,
-//             user_role: user_role.project_role_id - 1,
-//         });
-
-//         event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
-//         Ok(response)
-//     }
-
-//     // Handle removing a user from a project
-//     async fn remove_user_from_project(
-//         &self,
-//         request: Request<UserProjectModificationRequest>,
-//     ) -> Result<Response<StatusResponse>, Status> {
-//         event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", request);
-
-//         // Extract user ID from auth token in request metadata
-//         let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
-//         let conn = &self.connection;
-//         let request = request.into_inner();
-
-//         let admin_id = user_id_from_token as i32;
-
-//         // Check if the current user has permission to remove users from the project
-//         check_project_permission(conn, admin_id, request.project_id).await?;
-
-//         // Remove the user from the project
-//         ProjectQuery::remove_user_from_project(conn, request.project_id, request.user_id).await?;
-
-//         // Create success response
-//         let response = Response::new(StatusResponse { success: true });
-
-//         event!(target: "hellai_app_core_events", Level::DEBUG, "{:?}", response);
-//         Ok(response)
-//     }
-// }
-
-// // Function to check if the user has permission to modify the project
-// async fn check_project_permission(
-//     conn: &DbConn,
-//     user_id: i32,
-//     project_id: i32,
-// ) -> Result<(), Status> {
-//     // Retrieve the user's role in the project from the database
-//     let user_role_in_project =
-//         ProjectQuery::get_user_role_in_project(conn, project_id, user_id).await?;
-
-//     // Ensure that the user has "Owner" level permission (project_role_id == 1)
-//     match user_role_in_project {
-//         Some(user_role) if user_role.project_role_id == 1 => Ok(()),
-//         _ => Err(Status::permission_denied("permission_denied")),
-//     }
-// }

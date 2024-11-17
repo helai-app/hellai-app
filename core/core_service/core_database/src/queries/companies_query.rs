@@ -470,25 +470,43 @@ impl CompaniesQuery {
         Ok(())
     }
 
+    /// Deletes a specified company from the database if it exists.
+    ///
+    /// This function checks if the specified company exists in the database. If found, it deletes the company record.
+    /// If the company does not exist, it returns an error indicating the absence of the specified company.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A reference to the database connection.
+    /// * `company_id` - The ID of the company to be deleted.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` if the company was successfully deleted,
+    ///   or a `CoreErrors::DatabaseServiceError` if the company does not exist or another error occurs.
     pub async fn delete_company(db: &DbConn, company_id: i32) -> Result<(), CoreErrors> {
-        // Step 1: Check if the user has an existing role in the specified company
+        // Step 1: Attempt to find the company by its ID
         let company = companies::Entity::find_by_id(company_id).one(db).await?;
 
+        // Step 2: If the company exists, delete it; otherwise, return an error
         match company {
             Some(company) => {
+                // Convert the company entity into an active model for deletion
                 let active_company = company.into_active_model();
 
-                active_company.delete(db).await?
+                // Delete the company record from the database
+                active_company.delete(db).await?;
             }
             None => {
-                // Return an error if no user-company association exists
-                return Err(CoreErrors::DatabaseServiceError(
-                    "User not associated with the specified company".to_string(),
-                ));
+                // Return an error if the company does not exist
+                return Err(CoreErrors::DatabaseServiceError(format!(
+                    "Company with ID {} does not exist",
+                    company_id
+                )));
             }
         };
 
-        // Return success if the user was successfully removed
+        // Step 3: Return success if the deletion was successful
         Ok(())
     }
 

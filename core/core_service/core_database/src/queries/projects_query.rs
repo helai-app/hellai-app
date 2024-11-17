@@ -2,13 +2,11 @@ use core_error::core_errors::CoreErrors;
 
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DbBackend, DbConn,
-    EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Set, Statement,
+    DeleteResult, EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Set, Statement,
 };
 
-use crate::entity::prelude::Projects;
-use crate::entity::projects::{self};
 use crate::entity::sea_orm_active_enums::AccessLevelType;
-use crate::entity::user_access;
+use crate::entity::{projects, user_access};
 
 /// Represents a project associated with a user, along with the user's role in that project.
 pub struct UserProject {
@@ -179,21 +177,6 @@ impl ProjectQuery {
 
         // Return the created project
         Ok(project)
-    }
-
-    /// Deletes a project by its ID.
-    ///
-    /// # Arguments
-    ///
-    /// * `db` - The database connection.
-    /// * `project_id` - The ID of the project to delete.
-    ///
-    /// # Returns
-    ///
-    /// An empty `Result` on success, or an error of type `CoreErrors`.
-    pub async fn delete_project(db: &DbConn, project_id: i32) -> Result<(), CoreErrors> {
-        Projects::delete_by_id(project_id).exec(db).await?;
-        Ok(())
     }
 
     /// Retrieves a user's role and project details for a specific project.
@@ -408,6 +391,74 @@ impl ProjectQuery {
         };
 
         // Step 3: Return success if the deletion was successful
+        Ok(())
+    }
+
+    /// Deletes a specified project from the database if it exists.
+    ///
+    /// This function checks if the project with the specified ID exists in the database. If found, it deletes the project record.
+    /// If the project does not exist, it returns an error indicating the absence of the specified project.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A reference to the database connection.
+    /// * `project_id` - The ID of the project to be deleted.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` if the project was successfully deleted,
+    ///   or a `CoreErrors::DatabaseServiceError` if the project does not exist or another error occurs.
+    pub async fn delete_project(db: &DbConn, project_id: i32) -> Result<(), CoreErrors> {
+        // Step 1: Attempt to find the project by its ID
+        let project = projects::Entity::find_by_id(project_id).one(db).await?;
+
+        // Step 2: If the project exists, delete it; otherwise, return an error
+        match project {
+            Some(project) => {
+                // Convert the project entity into an active model for deletion
+                let active_project = project.into_active_model();
+
+                // Attempt to delete the project record from the database
+                active_project.delete(db).await?;
+            }
+            None => {
+                // Return an error if the project does not exist
+                return Err(CoreErrors::DatabaseServiceError(format!(
+                    "Project with ID {} does not exist",
+                    project_id
+                )));
+            }
+        };
+
+        // Step 3: Return success if the deletion was successful
+        Ok(())
+    }
+
+    /// Deletes all user associations from a specified project.
+    ///
+    /// This function removes all records in the `user_access` table for the given project ID,
+    /// effectively removing all users associated with the project.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A reference to the database connection.
+    /// * `project_id` - The ID of the project whose user associations should be deleted.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` if the associations were successfully deleted,
+    ///   or a `CoreErrors` error if the operation fails.
+    pub async fn delete_all_users_from_project(
+        db: &DbConn,
+        project_id: i32,
+    ) -> Result<(), CoreErrors> {
+        // Step 1: Attempt to delete all user associations for the specified project
+        let _: DeleteResult = user_access::Entity::delete_many()
+            .filter(user_access::Column::ProjectId.eq(project_id)) // Filter by project ID
+            .exec(db)
+            .await?;
+
+        // Step 3: Return success if the deletion was executed without errors
         Ok(())
     }
 }
