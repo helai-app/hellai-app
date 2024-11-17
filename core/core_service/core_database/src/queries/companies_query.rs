@@ -435,7 +435,7 @@ impl CompaniesQuery {
                 user_company::Entity::find()
                     .filter(user_company::Column::UserId.eq(user_id)) // Filter by user ID
                     .filter(user_company::Column::CompanyId.eq(company_id)) // Filter by company ID
-                    .filter(user_company::Column::RoleId.lte(level)) // Ensure role_id <= level
+                    .filter(user_company::Column::RoleId.gte(level)) // Ensure role_id <= level
                     .one(db)
                     .await?
             }

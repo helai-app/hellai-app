@@ -166,11 +166,68 @@ impl ProjectsService for MyServer {
         }
     }
 
+    /// Removes a user from a project if the authenticated user has sufficient permissions.
+    ///
+    /// This function allows a user to remove themselves from a project or remove another user if
+    /// they have the required permissions. If unauthorized, it returns a permission denied error.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - A gRPC request containing `UserProjectModificationRequest`, which includes
+    ///   the user ID and project ID for the removal action.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Response<StatusResponse>, Status>` - Returns a success response if the user is removed,
+    ///   or a permission denied error if the user lacks authorization.
     async fn remove_user_from_project(
         &self,
         request: Request<UserProjectModificationRequest>,
     ) -> Result<Response<StatusResponse>, Status> {
-        todo!()
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received remove user from project request: {:?}", request);
+
+        // Step 1: Authenticate the user by extracting their ID from the auth token in request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Unwrap the request to access the inner data
+        let request = request.into_inner();
+
+        // Step 2: Establish a database connection
+        let conn = &self.connection;
+
+        // Step 3: Allow the user to remove themselves from the project
+        if user_id_from_token as i32 == request.user_id {
+            // User is removing themselves; proceed with the removal
+            ProjectQuery::remove_user_from_project(conn, request.user_id, request.project_id, None)
+                .await?;
+        } else {
+            // Step 4: Check if the authenticated user has sufficient permissions to remove another user
+            let user_company_access =
+                check_project_permission(conn, user_id_from_token as i32, request.project_id)
+                    .await?;
+
+            // Permission level check - allow access if the user's role is sufficiently privileged (role_id <= 2)
+            if user_company_access.user_role.id <= 2 {
+                // Authorized to remove the specified user; proceed with the removal
+                ProjectQuery::remove_user_from_project(
+                    conn,
+                    request.user_id,
+                    request.project_id,
+                    Some(user_company_access.user_role.id),
+                )
+                .await?;
+            } else {
+                // Log and return a permission denied error if the user lacks authorization
+                event!(target: "hellai_app_core_events", Level::DEBUG, "Permission denied: Insufficient role level for removing user");
+                return Err(Status::permission_denied("permission_denied"));
+            }
+        }
+
+        // Step 5: Construct a success response indicating the user was removed
+        let response = Response::new(StatusResponse { success: true });
+
+        event!(target: "hellai_app_core_events", Level::DEBUG, "User removed from project successfully. Response: {:?}", response);
+        Ok(response)
     }
 
     async fn delete_project(

@@ -2,10 +2,10 @@ use core_error::core_errors::CoreErrors;
 
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DbBackend, DbConn,
-    EntityTrait, FromQueryResult, QueryFilter, Set, Statement,
+    EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Set, Statement,
 };
 
-use crate::entity::prelude::{Projects, UserAccess};
+use crate::entity::prelude::Projects;
 use crate::entity::projects::{self};
 use crate::entity::sea_orm_active_enums::AccessLevelType;
 use crate::entity::user_access;
@@ -195,36 +195,6 @@ impl ProjectQuery {
         Projects::delete_by_id(project_id).exec(db).await?;
         Ok(())
     }
-    /// Removes a user from a project by deleting their role assignment.
-    ///
-    /// # Arguments
-    ///
-    /// * `db` - The database connection.
-    /// * `project_id` - The ID of the project.
-    /// * `user_id` - The ID of the user.
-    ///
-    /// # Returns
-    ///
-    /// An empty `Result` on success, or an error of type `CoreErrors`.
-    pub async fn remove_user_from_project(
-        db: &DbConn,
-        project_id: i32,
-        user_id: i32,
-    ) -> Result<(), CoreErrors> {
-        // Delete the role assignment from user_project_roles
-        let delete_result = UserAccess::delete_many()
-            .filter(user_access::Column::UserId.eq(user_id))
-            .filter(user_access::Column::ProjectId.eq(project_id))
-            .exec(db)
-            .await?;
-
-        if delete_result.rows_affected == 0 {
-            // Optionally handle the case where no records were deleted
-            // e.g., return an error if the user was not part of the project
-        }
-
-        Ok(())
-    }
 
     /// Retrieves a user's role and project details for a specific project.
     ///
@@ -370,5 +340,74 @@ impl ProjectQuery {
 
         // Step 4: Return the successfully created `user_access` record
         Ok(result)
+    }
+
+    /// Removes a user from a specified project, optionally based on the requester's role level.
+    ///
+    /// This function checks if the user has an existing association with the project in the `user_access` table.
+    /// If the association exists and the requester's role level permits, it deletes the record. If no association
+    /// exists or the requester lacks sufficient permissions, an error is returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A reference to the database connection.
+    /// * `user_id` - The ID of the user to be removed from the project.
+    /// * `project_id` - The ID of the project from which the user is being removed.
+    /// * `request_user_id_lvl` - The role level of the requester. If provided, limits the deletion to associations with a lower or equal role level.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` if the user was successfully removed,
+    ///   or an error if the user is not associated with the project or lacks permissions.
+    pub async fn remove_user_from_project(
+        db: &DbConn,
+        user_id: i32,
+        project_id: i32,
+        request_user_id_lvl: Option<i32>,
+    ) -> Result<(), CoreErrors> {
+        // Step 1: Check if the user has an existing association with the specified project
+        let existing_access = match request_user_id_lvl {
+            Some(level) => {
+                println!("level is Some: {}", level);
+                println!("user_id is Some: {}", user_id);
+                println!("project_id is Some: {}", project_id);
+                // Restrict deletion to associations with a role level less than or equal to the requester's level
+                user_access::Entity::find()
+                    .filter(user_access::Column::UserId.eq(user_id))
+                    .filter(user_access::Column::ProjectId.eq(project_id)) // Corrected `CompanyId` to `ProjectId`
+                    .filter(user_access::Column::RoleId.gte(level))
+                    .one(db)
+                    .await?
+            }
+            None => {
+                println!("request_user_id_lvl is None");
+                // Check for any association without role level constraints
+                user_access::Entity::find()
+                    .filter(user_access::Column::UserId.eq(user_id))
+                    .filter(user_access::Column::ProjectId.eq(project_id)) // Corrected `CompanyId` to `ProjectId`
+                    .one(db)
+                    .await?
+            }
+        };
+
+        // Step 2: If an association exists, delete it; otherwise, return an error
+        match existing_access {
+            Some(access) => {
+                // Convert the record to an active model for deletion
+                let active_role = access.into_active_model();
+
+                // Delete the record from the database
+                active_role.delete(db).await?;
+            }
+            None => {
+                // Return an error if no association exists for the user in the specified project
+                return Err(CoreErrors::DatabaseServiceError(
+                    "User not associated with the specified project".to_string(),
+                ));
+            }
+        };
+
+        // Step 3: Return success if the deletion was successful
+        Ok(())
     }
 }
