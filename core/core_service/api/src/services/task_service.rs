@@ -8,7 +8,7 @@ use crate::{
         DeleteTaskRequest, StatusResponse, TaskUserInfoResponse, UserTaskModificationRequest,
     },
     middleware::{
-        access_check::check_project_permission,
+        access_check::{check_project_permission, check_tasks_permission},
         interceptors,
         validators::{
             empty_validation, max_symbols_validator_20, max_symbols_validator_250,
@@ -120,7 +120,36 @@ impl TasksService for MyServer {
         &self,
         request: Request<UserTaskModificationRequest>,
     ) -> Result<Response<TaskUserInfoResponse>, Status> {
-        todo!()
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received add user to project request: {:?}", request);
+
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        let request = request.into_inner();
+
+        let conn = &self.connection;
+
+        // Step 3: Check if the authenticated user has sufficient permissions for the specified project
+        let user_task_access =
+            check_tasks_permission(conn, user_id_from_token as i32, request.task_id).await?;
+
+        // Permission level check - allow access if the user's role is sufficiently privileged (role_id <= 2)
+        if user_task_access.1 <= 2 {
+            let user_access =
+                TasksQuery::add_user_to_task(conn, request.user_id, request.task_id).await?;
+
+            // Step 5: Construct a success response with the added user's information
+            let response = Response::new(TaskUserInfoResponse {
+                user_id: user_access.user_id,
+                user_role: user_access.role_id.unwrap_or(0) - 1, // Adjust to match the gRPC enum by subtracting 1
+            });
+
+            event!(target: "hellai_app_core_events", Level::DEBUG, "User added to project successfully. Response: {:?}", response);
+            Ok(response)
+        } else {
+            // Log and return a permission denied error if the user's role is not sufficiently privileged
+            event!(target: "hellai_app_core_events", Level::DEBUG, "Permission denied: User lacks sufficient role level to add users to project");
+            Err(Status::permission_denied("permission_denied"))
+        }
     }
 
     async fn remove_user_from_task(
