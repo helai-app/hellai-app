@@ -116,47 +116,164 @@ impl TasksService for MyServer {
         }
     }
 
+    /// Adds a user to a task after verifying the permissions of the authenticated user.
+    ///
+    /// This function validates the authenticated user's permissions for the task, and if the permissions are sufficient,
+    /// it adds the specified user to the task by creating or updating a `user_access` record.
+    ///
+    /// # Arguments
+    /// * `request` - A gRPC `Request` object containing the user and task details for the operation.
+    ///
+    /// # Returns
+    /// * `Result<Response<TaskUserInfoResponse>, Status>` - Returns a gRPC response containing the added user's information,
+    /// or a gRPC `Status` error if validation or permissions checks fail.
+    ///
+    /// # Errors
+    /// * Returns `Status::permission_denied` if the authenticated user lacks sufficient privileges.
+    /// * Returns `Status` for any other errors encountered during processing.
     async fn add_user_to_task(
         &self,
         request: Request<UserTaskModificationRequest>,
     ) -> Result<Response<TaskUserInfoResponse>, Status> {
-        event!(target: "hellai_app_core_events", Level::DEBUG, "Received add user to project request: {:?}", request);
+        // Log the incoming request at the DEBUG level
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "Received add user to task request: {:?}",
+            request
+        );
 
+        // Step 1: Authenticate the user by checking the auth token in the request metadata
         let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
 
+        // Unwrap the gRPC request to access the inner payload
         let request = request.into_inner();
 
+        // Step 2: Establish a connection to the database
         let conn = &self.connection;
 
-        // Step 3: Check if the authenticated user has sufficient permissions for the specified project
+        // Step 3: Verify the authenticated user's permissions for the specified task
         let user_task_access =
             check_tasks_permission(conn, user_id_from_token as i32, request.task_id).await?;
 
-        // Permission level check - allow access if the user's role is sufficiently privileged (role_id <= 2)
+        // Allow access only if the user's role ID is sufficiently privileged (role_id <= 2)
         if user_task_access.1 <= 2 {
+            // Step 4: Add the specified user to the task
             let user_access =
                 TasksQuery::add_user_to_task(conn, request.user_id, request.task_id).await?;
 
-            // Step 5: Construct a success response with the added user's information
+            // Step 5: Construct a success response with the added user's details
             let response = Response::new(TaskUserInfoResponse {
                 user_id: user_access.user_id,
-                user_role: user_access.role_id.unwrap_or(0) - 1, // Adjust to match the gRPC enum by subtracting 1
+                user_role: user_access.role_id.unwrap_or(0) - 1, // Adjust role ID to match the gRPC enum by subtracting 1
             });
 
-            event!(target: "hellai_app_core_events", Level::DEBUG, "User added to project successfully. Response: {:?}", response);
+            // Log the success event
+            event!(
+                target: "hellai_app_core_events",
+                Level::DEBUG,
+                "User added to task successfully. Response: {:?}",
+                response
+            );
+
             Ok(response)
         } else {
-            // Log and return a permission denied error if the user's role is not sufficiently privileged
-            event!(target: "hellai_app_core_events", Level::DEBUG, "Permission denied: User lacks sufficient role level to add users to project");
-            Err(Status::permission_denied("permission_denied"))
+            // Step 6: Log and return a permission denied error if the user lacks sufficient privileges
+            event!(
+                target: "hellai_app_core_events",
+                Level::DEBUG,
+                "Permission denied: User lacks sufficient privileges to add users to task"
+            );
+
+            Err(Status::permission_denied(
+                "Permission denied: insufficient privileges",
+            ))
         }
     }
 
+    /// Removes a user from a task after validating the permissions of the authenticated user.
+    ///
+    /// This function allows a user to remove themselves from a task or, if authorized, remove another user.
+    /// It validates permissions and handles both cases appropriately.
+    ///
+    /// # Arguments
+    /// * `request` - A gRPC `Request` object containing the user and task details for the operation.
+    ///
+    /// # Returns
+    /// * `Result<Response<StatusResponse>, Status>` - Returns a gRPC response indicating success,
+    /// or a gRPC `Status` error if validation or permissions checks fail.
+    ///
+    /// # Errors
+    /// * Returns `Status::permission_denied` if the authenticated user lacks sufficient privileges.
+    /// * Returns `Status` for any other errors encountered during processing.
     async fn remove_user_from_task(
         &self,
         request: Request<UserTaskModificationRequest>,
     ) -> Result<Response<StatusResponse>, Status> {
-        todo!()
+        // Step 1: Log the incoming request at the DEBUG level
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "Received remove user from task request: {:?}",
+            request
+        );
+
+        // Step 2: Authenticate the user by checking the auth token in the request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Unwrap the gRPC request to access the inner payload
+        let request = request.into_inner();
+
+        // Step 3: Establish a connection to the database
+        let conn = &self.connection;
+
+        // Step 4: Handle user removal logic
+        if user_id_from_token as i32 == request.user_id {
+            // Case 1: User is removing themselves from the task
+            TasksQuery::remove_user_from_task(conn, request.user_id, request.task_id, None).await?;
+        } else {
+            // Case 2: User is attempting to remove another user from the task
+
+            // Check if the authenticated user has sufficient permissions for the task
+            let user_task_access =
+                check_tasks_permission(conn, user_id_from_token as i32, request.task_id).await?;
+
+            println!("Permission id {}", user_task_access.1);
+
+            if user_task_access.1 <= 2 {
+                // User has sufficient privileges; proceed with the removal
+                TasksQuery::remove_user_from_task(
+                    conn,
+                    request.user_id,
+                    request.task_id,
+                    Some(user_task_access.1),
+                )
+                .await?;
+            } else {
+                // Log and return a permission denied error
+                event!(
+                    target: "hellai_app_core_events",
+                    Level::DEBUG,
+                    "Permission denied: Insufficient role level for removing user"
+                );
+                return Err(Status::permission_denied(
+                    "Permission denied: insufficient privileges",
+                ));
+            }
+        }
+
+        // Step 5: Construct a success response indicating the user was removed
+        let response = Response::new(StatusResponse { success: true });
+
+        // Log the success event
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "User removed from task successfully. Response: {:?}",
+            response
+        );
+
+        Ok(response)
     }
 
     async fn delete_task(

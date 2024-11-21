@@ -1,7 +1,7 @@
 use core_error::core_errors::CoreErrors;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DbBackend, DbConn, DbErr,
-    EntityTrait, QueryFilter, RuntimeErr, Set, Statement,
+    EntityTrait, IntoActiveModel, QueryFilter, RuntimeErr, Set, Statement,
 };
 
 use crate::entity::{
@@ -92,14 +92,31 @@ impl TasksQuery {
         Ok(task)
     }
 
+    /// Retrieves a user's task and their access level for a specific task.
+    ///
+    /// This function checks the user's role and permissions from the `user_company` and `user_access` tables
+    /// using a composite query with Common Table Expressions (CTEs). It determines the user's access level
+    /// to the specified task and retrieves the task details.
+    ///
+    /// # Arguments
+    /// * `db` - A reference to the database connection.
+    /// * `user_id` - The ID of the user.
+    /// * `task_id` - The ID of the task.
+    ///
+    /// # Returns
+    /// * `Result<Option<(tasks::Model, i32)>, CoreErrors>` - Returns the task details as a `tasks::Model`
+    ///   along with the user's role ID if found. Returns `None` if no matching task or access level is found.
+    ///
+    /// # Errors
+    /// * Returns `CoreErrors` if the database query fails or if data conversion errors occur.
     pub async fn get_user_task_with_access_lvl(
         db: &DbConn,
         user_id: i32,
         task_id: i32,
     ) -> Result<Option<(tasks::Model, i32)>, CoreErrors> {
-        // SQL query to retrieve the task details and the user's role for a user
+        // SQL query with multiple CTEs to handle different levels of permissions
         let sql = r#"
-            WITH user_role AS (
+        WITH user_role AS (
             -- Check user's role and project details from `user_company`
             SELECT 
                 uc.role_id AS role_id,
@@ -115,13 +132,11 @@ impl TasksQuery {
             FROM user_company uc
             JOIN roles r ON uc.role_id = r.id
             JOIN tasks t ON uc.company_id = (SELECT company_id FROM projects WHERE id = t.project_id)
-            WHERE uc.user_id = $1 
-            AND t.id = $2
-            AND uc.role_id <= 2
+            WHERE uc.user_id = $1 AND t.id = $2 AND uc.role_id <= 2
 
             UNION ALL
 
-            -- Check user's role and project details from `user_access` for project-level permissions
+            -- Check user's role and permissions from `user_access` at the project level
             SELECT 
                 ua.role_id AS role_id,
                 r.name AS role_name,
@@ -129,20 +144,18 @@ impl TasksQuery {
                 t.project_id AS project_id,
                 t.title AS task_title,
                 t.description AS task_description,
-                t.status::TEXT AS task_status, -- Cast to TEXT
+                t.status::TEXT AS task_status,
                 t.priority AS task_priority,
                 t.due_date AS task_due_date,
                 t.created_at AS task_created_at
             FROM user_access ua
             JOIN roles r ON ua.role_id = r.id
             JOIN tasks t ON ua.project_id = t.project_id
-            WHERE ua.user_id = $1 
-            AND t.id = $2
-            AND ua.role_id <= 5
+            WHERE ua.user_id = $1 AND t.id = $2 AND ua.role_id <= 5
 
             UNION ALL
 
-            -- Check user's role and project details from `user_access` for task-level permissions
+            -- Check user's role and permissions from `user_access` at the task level
             SELECT 
                 ua.role_id AS role_id,
                 r.name AS role_name,
@@ -150,15 +163,14 @@ impl TasksQuery {
                 t.project_id AS project_id,
                 t.title AS task_title,
                 t.description AS task_description,
-                t.status::TEXT AS task_status, -- Cast to TEXT
+                t.status::TEXT AS task_status,
                 t.priority AS task_priority,
                 t.due_date AS task_due_date,
                 t.created_at AS task_created_at
             FROM user_access ua
             JOIN roles r ON ua.role_id = r.id
             JOIN tasks t ON ua.task_id = t.id
-            WHERE ua.user_id = $1 
-            AND ua.task_id = $2
+            WHERE ua.user_id = $1 AND ua.task_id = $2
         )
         SELECT 
             ur.task_id AS task_id,
@@ -173,78 +185,165 @@ impl TasksQuery {
             ur.role_name AS role_name
         FROM user_role ur
         LIMIT 1;
-        "#;
+    "#;
 
         // Prepare the SQL statement with parameters
         let stmt = Statement::from_sql_and_values(
             DbBackend::Postgres,
             sql,
             vec![
-                user_id.into(), // $1 - The user ID
-                task_id.into(), // $2 - The task ID
+                user_id.into(), // $1 - User ID
+                task_id.into(), // $2 - Task ID
             ],
         );
 
-        // Execute the query and retrieve the result
+        // Execute the query and fetch the result
         let query_result = db.query_one(stmt).await?;
 
-        // Parse the query result into a `tasks::Model` and user role ID if found
+        // Parse the query result into a `tasks::Model` and user's role ID
         if let Some(row) = query_result {
+            // Extract and convert the task status
             let task_status: Option<String> = row.try_get("", "task_status")?;
             let status = task_status
                 .map(|s| TaskStatusType::try_from(Some(s)))
                 .transpose()?
                 .unwrap();
 
+            // Construct the `tasks::Model` from the query result
             let task = tasks::Model {
                 id: row.try_get("", "task_id")?,                       // Task ID
-                project_id: row.try_get("", "project_id")?, // Project ID associated with the task
-                assigned_to: Some(user_id), // Assigned to user (as inferred from context)
-                status: status,             // Task status
-                title: row.try_get("", "task_title")?, // Task title
-                description: row.try_get("", "task_description").ok(), // Nullable task description
-                priority: row.try_get("", "task_priority").ok(), // Nullable task priority
-                created_at: row.try_get("", "task_created_at")?, // Task creation timestamp
-                due_date: row.try_get("", "task_due_date").ok(), // Nullable task due date
+                project_id: row.try_get("", "project_id")?,            // Project ID
+                assigned_to: Some(user_id),                            // Assigned user ID
+                status,                                                // Task status
+                title: row.try_get("", "task_title")?,                 // Task title
+                description: row.try_get("", "task_description").ok(), // Nullable description
+                priority: row.try_get("", "task_priority").ok(),       // Nullable priority
+                created_at: row.try_get("", "task_created_at")?,       // Creation timestamp
+                due_date: row.try_get("", "task_due_date").ok(),       // Nullable due date
             };
-            let role_id = row.try_get("", "role_id")?; // User's role ID
+
+            // Extract the user's role ID
+            let role_id = row.try_get("", "role_id")?;
+
+            // Return the task and role ID
             Ok(Some((task, role_id)))
         } else {
-            // Return `None` if no matching task is found
+            // No matching task found, return `None`
             Ok(None)
         }
     }
 
+    /// Adds a user to a task by creating or retrieving a `user_access` record.
+    ///
+    /// This function first checks if the user already has access to the specified task.
+    /// If access exists, it returns the existing record. Otherwise, it creates a new `user_access`
+    /// record with a default role and access level.
+    ///
+    /// # Arguments
+    /// * `db` - A reference to the database connection.
+    /// * `user_id` - The ID of the user to be added to the task.
+    /// * `task_id` - The ID of the task to which the user should be added.
+    ///
+    /// # Returns
+    /// * `Result<user_access::Model, CoreErrors>` - Returns the existing or newly created `user_access` record.
+    ///
+    /// # Errors
+    /// * Returns `CoreErrors` if the database query or insert operation fails.
     pub async fn add_user_to_task(
         db: &DbConn,
         user_id: i32,
         task_id: i32,
     ) -> Result<user_access::Model, CoreErrors> {
-        // Step 1: Check if the `user_access` entry already exists
+        // Step 1: Check if the user already has access to the task
         if let Some(existing_access) = user_access::Entity::find()
-            .filter(user_access::Column::UserId.eq(user_id))
-            .filter(user_access::Column::TaskId.eq(task_id))
+            .filter(user_access::Column::UserId.eq(user_id)) // Filter by user ID
+            .filter(user_access::Column::TaskId.eq(task_id)) // Filter by task ID
             .one(db)
             .await?
         {
-            // Return the existing record if found
+            // If access exists, return the existing record
             return Ok(existing_access);
         }
 
-        // Step 2: Create a new `user_access` record with the specified details
+        // Step 2: Define a new `user_access` record with default role and access level
         let new_access = user_access::ActiveModel {
-            user_id: Set(user_id),                       // Set the user ID
-            task_id: Set(Some(task_id)),                 // Associate with the specified project
-            role_id: Set(Some(3)),                       // Assign role ID 3 (Manager)
-            access_level: Set(AccessLevelType::Limited), // Set access level to limited
+            user_id: Set(user_id),                       // Assign the user ID
+            task_id: Set(Some(task_id)),                 // Assign the task ID
+            role_id: Set(Some(3)),                       // Assign role ID 3 (e.g., Manager)
+            access_level: Set(AccessLevelType::Limited), // Set access level to 'Limited'
             ..Default::default()                         // Use default values for other fields
         };
 
-        // Step 3: Insert the new role assignment into the database
-        let result = new_access.insert(db).await?;
+        // Step 3: Insert the new `user_access` record into the database
+        let inserted_access = new_access.insert(db).await?;
 
-        // Step 4: Return the successfully created `user_access` record
-        Ok(result)
+        // Step 4: Return the newly created `user_access` record
+        Ok(inserted_access)
+    }
+
+    /// Removes a user's access to a task from the `user_access` table.
+    ///
+    /// Depending on the `request_user_id_lvl`, this function checks for a matching user-task association
+    /// with or without a role level constraint. If an association exists, it deletes the record; otherwise,
+    /// it returns an error.
+    ///
+    /// # Arguments
+    /// * `db` - A reference to the database connection.
+    /// * `user_id` - The ID of the user whose access to the task is being removed.
+    /// * `task_id` - The ID of the task from which the user's access should be removed.
+    /// * `request_user_id_lvl` - An optional role level constraint. If provided, only associations with a role
+    ///   level greater than or equal to this value will be considered.
+    ///
+    /// # Returns
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` on successful removal or an error if no matching association is found.
+    ///
+    /// # Errors
+    /// * Returns `CoreErrors::DatabaseServiceError` if the user-task association does not exist.
+    /// * Returns `CoreErrors` for any database operation failures.
+    pub async fn remove_user_from_task(
+        db: &DbConn,
+        user_id: i32,
+        task_id: i32,
+        request_user_id_lvl: Option<i32>,
+    ) -> Result<(), CoreErrors> {
+        // Step 1: Query the `user_access` table for a matching record
+        let existing_access = match request_user_id_lvl {
+            // Case 1: Query with role level constraint
+            Some(level) => {
+                user_access::Entity::find()
+                    .filter(user_access::Column::UserId.eq(user_id)) // Match user ID
+                    .filter(user_access::Column::TaskId.eq(task_id)) // Match task ID
+                    .filter(user_access::Column::RoleId.gte(level)) // Role level constraint
+                    .one(db)
+                    .await?
+            }
+            // Case 2: Query without role level constraint
+            None => {
+                user_access::Entity::find()
+                    .filter(user_access::Column::UserId.eq(user_id)) // Match user ID
+                    .filter(user_access::Column::TaskId.eq(task_id)) // Match task ID
+                    .one(db)
+                    .await?
+            }
+        };
+
+        // Step 2: Handle the query result
+        match existing_access {
+            Some(access) => {
+                // Record exists, proceed to deletion
+                let active_role = access.into_active_model(); // Convert to active model
+                active_role.delete(db).await?; // Delete the record
+            }
+            None => {
+                // No matching association found, return a meaningful error
+                return Err(CoreErrors::DatabaseServiceError(
+                    "User not associated with the specified task".to_string(),
+                ));
+            }
+        };
+
+        // Step 3: Return success
+        Ok(())
     }
 }
 

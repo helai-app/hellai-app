@@ -351,9 +351,6 @@ impl ProjectQuery {
         // Step 1: Check if the user has an existing association with the specified project
         let existing_access = match request_user_id_lvl {
             Some(level) => {
-                println!("level is Some: {}", level);
-                println!("user_id is Some: {}", user_id);
-                println!("project_id is Some: {}", project_id);
                 // Restrict deletion to associations with a role level less than or equal to the requester's level
                 user_access::Entity::find()
                     .filter(user_access::Column::UserId.eq(user_id))
@@ -363,7 +360,6 @@ impl ProjectQuery {
                     .await?
             }
             None => {
-                println!("request_user_id_lvl is None");
                 // Check for any association without role level constraints
                 user_access::Entity::find()
                     .filter(user_access::Column::UserId.eq(user_id))
