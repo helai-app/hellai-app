@@ -1,7 +1,7 @@
 use core_error::core_errors::CoreErrors;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DbBackend, DbConn, DbErr,
-    EntityTrait, IntoActiveModel, QueryFilter, RuntimeErr, Set, Statement,
+    DeleteResult, EntityTrait, IntoActiveModel, QueryFilter, RuntimeErr, Set, Statement,
 };
 
 use crate::entity::{
@@ -343,6 +343,68 @@ impl TasksQuery {
         };
 
         // Step 3: Return success
+        Ok(())
+    }
+
+    /// Deletes a task from the database by its ID.
+    ///
+    /// This function checks if the task exists before attempting to delete it. If the task is found,
+    /// it is deleted. If the task does not exist, an error is returned.
+    ///
+    /// # Arguments
+    /// * `db` - A reference to the database connection.
+    /// * `task_id` - The ID of the task to be deleted.
+    ///
+    /// # Returns
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` if the task is successfully deleted,
+    /// or an appropriate error if the task does not exist or the deletion fails.
+    ///
+    /// # Errors
+    /// * Returns `CoreErrors::DatabaseServiceError` if the task does not exist.
+    /// * Returns `CoreErrors` for any database operation failures.
+    pub async fn delete_task(db: &DbConn, task_id: i32) -> Result<(), CoreErrors> {
+        // Step 1: Attempt to find the task by its ID
+        match tasks::Entity::find_by_id(task_id).one(db).await? {
+            Some(task) => {
+                // Step 2: Convert the found task entity into an active model for deletion
+                let active_task = task.into_active_model();
+
+                // Step 3: Delete the task record from the database
+                active_task.delete(db).await?;
+            }
+            None => {
+                // Step 4: Return an error if the task does not exist
+                return Err(CoreErrors::DatabaseServiceError(format!(
+                    "Task with ID {} does not exist",
+                    task_id
+                )));
+            }
+        }
+
+        // Step 5: Return success if the task was deleted successfully
+        Ok(())
+    }
+
+    /// Deletes all user associations for a specific task from the `user_access` table.
+    ///
+    /// This function removes all user-task associations linked to the specified task ID.
+    ///
+    /// # Arguments
+    /// * `db` - A reference to the database connection.
+    /// * `task_id` - The ID of the task for which all user associations should be removed.
+    ///
+    /// # Returns
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` if the associations are successfully deleted,
+    /// or an appropriate error if the deletion fails.
+    ///
+    /// # Errors
+    /// * Returns `CoreErrors` for any database operation failures.
+    pub async fn delete_all_users_from_task(db: &DbConn, task_id: i32) -> Result<(), CoreErrors> {
+        let _: DeleteResult = user_access::Entity::delete_many()
+            .filter(user_access::Column::TaskId.eq(task_id))
+            .exec(db)
+            .await?;
+
         Ok(())
     }
 }

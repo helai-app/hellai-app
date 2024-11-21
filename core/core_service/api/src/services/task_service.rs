@@ -276,10 +276,78 @@ impl TasksService for MyServer {
         Ok(response)
     }
 
+    /// Deletes a task and all associated user-task relationships from the database.
+    ///
+    /// This function validates the authenticated user's permissions, ensuring only users with the "Owner" role
+    /// (role_id == 1) can delete a task. Upon successful validation, the task and all associated user-task
+    /// relationships are removed from the database.
+    ///
+    /// # Arguments
+    /// * `request` - A gRPC `Request` object containing the task ID to be deleted.
+    ///
+    /// # Returns
+    /// * `Result<Response<StatusResponse>, Status>` - Returns a gRPC response indicating success,
+    /// or a gRPC `Status` error if the user lacks sufficient permissions or if any database operation fails.
+    ///
+    /// # Errors
+    /// * Returns `Status::permission_denied` if the user lacks the required "Owner" role.
+    /// * Returns `Status` for any other errors encountered during processing.
     async fn delete_task(
         &self,
         request: Request<DeleteTaskRequest>,
     ) -> Result<Response<StatusResponse>, Status> {
-        todo!()
+        // Log the incoming request
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "Received delete task request: {:?}",
+            request
+        );
+
+        // Step 1: Authenticate the user by checking the auth token in the request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Step 2: Unwrap the gRPC request to access the inner payload
+        let request = request.into_inner();
+
+        // Step 3: Establish a connection to the database
+        let conn = &self.connection;
+
+        // Step 4: Verify the authenticated user's permissions for the specified task
+        let user_task_access =
+            check_tasks_permission(conn, user_id_from_token as i32, request.task_id).await?;
+
+        // Allow deletion only if the user's role is "Owner" (role_id == 1)
+        if user_task_access.1 == 1 {
+            // Step 5: Delete the task from the database
+            TasksQuery::delete_task(conn, request.task_id).await?;
+
+            // Step 6: Delete all user associations with the specified task
+            TasksQuery::delete_all_users_from_task(conn, request.task_id).await?;
+
+            // Step 7: Construct a success response
+            let response = Response::new(StatusResponse { success: true });
+
+            // Log the success event
+            event!(
+                target: "hellai_app_core_events",
+                Level::DEBUG,
+                "Task and associated users deleted successfully. Response: {:?}",
+                response
+            );
+
+            Ok(response)
+        } else {
+            // Log and return a permission denied error if the user lacks the required "Owner" role
+            event!(
+                target: "hellai_app_core_events",
+                Level::DEBUG,
+                "Permission denied: User lacks 'Owner' role to delete task"
+            );
+
+            Err(Status::permission_denied(
+                "Permission denied: insufficient privileges",
+            ))
+        }
     }
 }
