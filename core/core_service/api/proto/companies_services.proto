@@ -21,6 +21,7 @@ service CompaniesService {
   // Deletes a company by its unique identifier
   rpc DeleteCompany(DeleteCompanyRequest) returns (StatusResponse) {}
 
+  // Get all User companies by id in token
   rpc GetAllUserCompanies(GetAllCompanyRequest)
       returns (GetAllCompanyRespnonse) {}
 }
@@ -66,7 +67,8 @@ message CompanyInfoResponse {
   optional string contact_info = 5; // Some contacts (owner email)
 }
 
-// Get all User companies by id in token
+// Request message gor get all User companies by id in token
 message GetAllCompanyRequest {}
 
+// Response message gor get all User companies by id in token
 message GetAllCompanyRespnonse { repeated CompanyInfoResponse companies = 1; }

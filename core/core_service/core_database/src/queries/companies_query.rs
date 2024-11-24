@@ -527,13 +527,28 @@ impl CompaniesQuery {
         Ok(())
     }
 
+    /// Retrieves all companies associated with a user from the database.
+    ///
+    /// This function executes a raw SQL query to fetch all companies that the specified user is linked to
+    /// via the `user_company` table.
+    ///
+    /// # Arguments
+    /// * `db` - A reference to the database connection.
+    /// * `user_id` - The ID of the user whose associated companies are to be retrieved.
+    ///
+    /// # Returns
+    /// * `Result<Vec<companies::Model>, CoreErrors>` - Returns a list of `companies::Model` on success,
+    /// or an error if the query fails.
+    ///
+    /// # Errors
+    /// * Returns `CoreErrors` for any database operation failures.
     pub async fn get_all_user_companies(
         db: &DbConn,
         user_id: i32,
     ) -> Result<Vec<companies::Model>, CoreErrors> {
-        // SQL query to validate user permissions for the specified note
+        // SQL query to fetch all companies associated with the specified user
         let sql = r#"
-         SELECT 
+        SELECT 
             c.id AS id,
             c.name AS name,
             c.name_alias AS name_alias,
@@ -547,8 +562,9 @@ impl CompaniesQuery {
             uc.company_id = c.id
         WHERE 
             uc.user_id = $1;
-     "#;
+    "#;
 
+        // Step 1: Prepare the SQL statement with the user ID parameter
         let stmt = Statement::from_sql_and_values(
             DbBackend::Postgres,
             sql,
@@ -556,10 +572,13 @@ impl CompaniesQuery {
                 user_id.into(), // $1 - User ID
             ],
         );
-        let note: Vec<companies::Model> =
+
+        // Step 2: Execute the query and fetch the result
+        let companies: Vec<companies::Model> =
             companies::Entity::find().from_raw_sql(stmt).all(db).await?;
 
-        Ok(note)
+        // Step 3: Return the fetched companies
+        Ok(companies)
     }
 }
 

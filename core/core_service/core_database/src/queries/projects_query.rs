@@ -455,4 +455,78 @@ impl ProjectQuery {
 
         Ok(())
     }
+
+    /// Retrieves all projects within a company that a user has access to.
+    ///
+    /// This function executes a SQL query to fetch projects that the user can access, either
+    /// due to full company access (`role_id <= 2` in `user_company`) or explicit assignment
+    /// in the `user_access` table for projects within the specified company.
+    ///
+    /// # Arguments
+    /// * `db` - A reference to the database connection.
+    /// * `company_id` - The ID of the company whose projects are to be retrieved.
+    /// * `user_id` - The ID of the user for whom access is being checked.
+    ///
+    /// # Returns
+    /// * `Result<Vec<projects::Model>, CoreErrors>` - Returns a list of `projects::Model` on success,
+    /// or an error if the query fails.
+    ///
+    /// # Errors
+    /// * Returns `CoreErrors` for any database operation failures.
+    pub async fn get_all_company_project_by_access(
+        db: &DbConn,
+        company_id: i32,
+        user_id: i32,
+    ) -> Result<Vec<projects::Model>, CoreErrors> {
+        // SQL query to fetch all accessible projects within the specified company for the user
+        let sql = r#"
+        SELECT 
+            p.id AS id,
+            p.company_id AS company_id,
+            p.title AS title,
+            p.description AS description,
+            p.decoration_color AS decoration_color,
+            p.created_at AS created_at,
+            p.updated_at AS updated_at
+        FROM 
+            projects p
+        WHERE 
+            p.company_id = $1
+            AND (
+                -- Full access to the company (role_id <= 2 in user_company)
+                EXISTS (
+                    SELECT 1 
+                    FROM user_company uc 
+                    WHERE uc.user_id = $2 
+                      AND uc.company_id = $1
+                      AND uc.role_id <= 2
+                )
+                OR 
+                -- Explicit user access to the project
+                EXISTS (
+                    SELECT 1
+                    FROM user_access ua
+                    WHERE ua.user_id = $2
+                      AND ua.project_id = p.id
+                )
+            );
+    "#;
+
+        // Step 1: Prepare the SQL statement with parameters
+        let stmt = Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            sql,
+            vec![
+                company_id.into(), // $1 - Company ID
+                user_id.into(),    // $2 - User ID
+            ],
+        );
+
+        // Step 2: Execute the query and fetch the result
+        let projects: Vec<projects::Model> =
+            projects::Entity::find().from_raw_sql(stmt).all(db).await?;
+
+        // Step 3: Return the list of projects
+        Ok(projects)
+    }
 }

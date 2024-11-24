@@ -27,6 +27,7 @@ Manage company-level operations:
 - **AddUserToCompany**: ➕ Assign a user to a company with a specific role.
 - **RemoveUserFromCompany**: ❌ Remove a user from a company.
 - **DeleteCompany**: 🗑️ Delete an existing company.
+- **GetAllUserCompanies****: 📜 Retrieve all companies associated with the user making the request (based on their token).
 
 ---
 
@@ -38,7 +39,7 @@ Handle project-level operations:
 - **AddUserToProject**: 👥 Add a user to a project.
 - **RemoveUserFromProject**: ❌ Remove a user from a project.
 - **DeleteProject**: 🗑️ Delete a project.
-- **GetAllUserCompanies****: 📜 Retrieve all companies associated with the user making the request (based on their token).
+- **GetAllCompanyProjects****: 📜 Retrieve all projects associated with a specific company, considering the user's access permissions in the request.
 
 ---
 

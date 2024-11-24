@@ -264,37 +264,67 @@ impl CompaniesService for MyServer {
         }
     }
 
+    /// Retrieves all companies associated with a user.
+    ///
+    /// This function authenticates the user using the auth token in the request metadata
+    /// and fetches all companies associated with their user ID from the database.
+    ///
+    /// # Arguments
+    /// * `request` - A gRPC `Request` object.
+    ///
+    /// # Returns
+    /// * `Result<Response<GetAllCompanyRespnonse>, Status>` - Returns a gRPC response containing a list of companies,
+    /// or a gRPC `Status` error if authentication or database operations fail.
+    ///
+    /// # Errors
+    /// * Returns `Status` for authentication errors or database failures.
     async fn get_all_user_companies(
         &self,
         request: Request<GetAllCompanyRequest>,
     ) -> Result<Response<GetAllCompanyRespnonse>, Status> {
-        event!(target: "hellai_app_core_events", Level::DEBUG, "Received get all user companies request: {:?}", request);
+        // Step 1: Log the incoming request
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "Received get all user companies request: {:?}",
+            request
+        );
 
-        // Step 1: Authenticate the user and extract their ID from the auth token in the request metadata
+        // Step 2: Authenticate the user and extract their ID from the auth token
         let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
 
-        // Step 2: Establish a database connection
+        // Step 3: Establish a database connection
         let conn = &self.connection;
 
+        // Step 4: Fetch all companies associated with the authenticated user
         let companies =
             CompaniesQuery::get_all_user_companies(conn, user_id_from_token as i32).await?;
 
+        // Step 5: Transform the database results into the gRPC response format
         let companies_response: Vec<CompanyInfoResponse> = companies
             .into_iter()
-            .map(|x| CompanyInfoResponse {
-                id: x.id,
-                name: x.name,
-                name_alias: x.name_alias,
-                description: x.description,
-                contact_info: x.contact_info,
+            .map(|company| CompanyInfoResponse {
+                id: company.id,
+                name: company.name,
+                name_alias: company.name_alias,
+                description: company.description,
+                contact_info: company.contact_info,
             })
             .collect();
 
+        // Step 6: Construct the response object
         let response = Response::new(GetAllCompanyRespnonse {
             companies: companies_response,
         });
 
-        event!(target: "hellai_app_core_events", Level::DEBUG, "Get all user companies successfully. Response: {:?}", response);
+        // Step 7: Log the success event
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "Retrieved all user companies successfully. Response: {:?}",
+            response
+        );
+
         Ok(response)
     }
 }

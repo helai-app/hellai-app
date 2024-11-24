@@ -5,8 +5,8 @@ use tonic::{Request, Response, Status};
 use crate::{
     helai_api_core_service::{
         projects_service_server::ProjectsService, CreateProjectRequest, CreateProjectResponse,
-        DeleteProjectRequest, ProjectUserInfoResponse, StatusResponse,
-        UserProjectModificationRequest,
+        DeleteProjectRequest, GetAllCompanyProjectsRequest, GetAllCompanyProjectsRespnonse,
+        ProjectUserInfoResponse, ProjectsResponse, StatusResponse, UserProjectModificationRequest,
     },
     middleware::{
         access_check::{check_company_permission, check_project_permission},
@@ -281,5 +281,76 @@ impl ProjectsService for MyServer {
             event!(target: "hellai_app_core_events", Level::DEBUG, "Permission denied: User lacks 'Owner' role to delete project");
             Err(Status::permission_denied("permission_denied"))
         }
+    }
+
+    /// Retrieves all company projects filtered by user access.
+    ///
+    /// This function authenticates the user, validates their access to the specified company,
+    /// and fetches the projects the user has permissions to view or access.
+    ///
+    /// # Arguments
+    /// * `request` - A gRPC `Request` containing the company ID.
+    ///
+    /// # Returns
+    /// * `Result<Response<GetAllCompanyProjectsRespnonse>, Status>` - Returns a gRPC response containing
+    ///   the list of projects, or a `Status` error if authentication or database operations fail.
+    ///
+    /// # Errors
+    /// * Returns `Status` for authentication errors or database failures.
+    async fn get_all_company_projects(
+        &self,
+        request: Request<GetAllCompanyProjectsRequest>,
+    ) -> Result<Response<GetAllCompanyProjectsRespnonse>, Status> {
+        // Step 1: Log the incoming request
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "Received get company projects request: {:?}",
+            request
+        );
+
+        // Step 2: Authenticate the user by extracting their ID from the auth token in the request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Step 3: Extract the inner payload from the gRPC request
+        let request = request.into_inner();
+
+        // Step 4: Establish a database connection
+        let conn = &self.connection;
+
+        // Step 5: Fetch projects accessible by the user for the specified company
+        let projects_db = ProjectQuery::get_all_company_project_by_access(
+            conn,
+            request.company_id,
+            user_id_from_token as i32,
+        )
+        .await?;
+
+        // Step 6: Transform the database results into the gRPC response format
+        let projects_response: Vec<ProjectsResponse> = projects_db
+            .into_iter()
+            .map(|project| ProjectsResponse {
+                id: project.id,
+                company_id: project.company_id,
+                title: project.title,
+                description: project.description,
+                decoration_color: project.decoration_color,
+            })
+            .collect();
+
+        // Step 7: Construct the response object
+        let response = Response::new(GetAllCompanyProjectsRespnonse {
+            projects: projects_response,
+        });
+
+        // Step 8: Log the success event
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "Retrieved company projects successfully. Response: {:?}",
+            response
+        );
+
+        Ok(response)
     }
 }

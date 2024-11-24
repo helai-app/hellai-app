@@ -20,6 +20,10 @@ service ProjectsService {
 
   // RPC for deleting a project
   rpc DeleteProject(DeleteProjectRequest) returns (StatusResponse) {}
+
+  // RPC for get company projects by company id
+  rpc GetAllCompanyProjects(GetAllCompanyProjectsRequest)
+      returns (GetAllCompanyProjectsRespnonse) {}
 }
 
 // Request message for creating a new project
@@ -63,4 +67,12 @@ message ProjectsResponse {
   string title = 3;                     // Project title information
   optional string description = 4;      // Short info about project
   optional string decoration_color = 5; // Color inicator for UI
+}
+
+// Request message gor get all Company projects
+message GetAllCompanyProjectsRequest { int32 company_id = 1; }
+
+// Request message gor get all Company projects
+message GetAllCompanyProjectsRespnonse {
+  repeated ProjectsResponse projects = 1;
 }
