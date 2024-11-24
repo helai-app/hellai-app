@@ -141,14 +141,11 @@ impl CompaniesQuery {
             ),
             None => Statement::from_sql_and_values(DbBackend::Postgres, sql, [user_id.into()]),
         };
-        println!("Step 1.");
 
         // Execute the query and retrieve results as `UserCompanyQueryResult`.
         let query_results = UserCompanyQueryResult::find_by_statement(stmt)
             .all(db)
             .await?;
-
-        println!("Step 2.");
 
         // Return `None` if no results are found.
         if query_results.is_empty() {
@@ -157,8 +154,6 @@ impl CompaniesQuery {
 
         // Initialize `UserCompany` to aggregate data from the query results.
         let mut user_company = None;
-
-        println!("Step 3.");
 
         // Process each record in the query result to build the `UserCompany` structure.
         for record in query_results {
@@ -178,8 +173,6 @@ impl CompaniesQuery {
                     company_projects: Vec::new(),
                 });
             }
-
-            println!("Step 4.");
 
             // Add project details if available to `company_projects`.
             if let Some(project_id) = record.project_id {
@@ -252,8 +245,6 @@ impl CompaniesQuery {
                     rand::thread_rng().gen_range(1..1000)
                 )
             };
-
-            println!("Test {}", name_alias);
 
             // Step 1: Check if `name_alias` already exists in the `companies` table.
             let check_alias_sql =
@@ -534,6 +525,41 @@ impl CompaniesQuery {
             .exec(db)
             .await?;
         Ok(())
+    }
+
+    pub async fn get_all_user_companies(
+        db: &DbConn,
+        user_id: i32,
+    ) -> Result<Vec<companies::Model>, CoreErrors> {
+        // SQL query to validate user permissions for the specified note
+        let sql = r#"
+         SELECT 
+            c.id AS id,
+            c.name AS name,
+            c.name_alias AS name_alias,
+            c.description AS description,
+            c.contact_info AS contact_info
+        FROM 
+            user_company uc
+        JOIN 
+            companies c
+        ON 
+            uc.company_id = c.id
+        WHERE 
+            uc.user_id = $1;
+     "#;
+
+        let stmt = Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            sql,
+            vec![
+                user_id.into(), // $1 - User ID
+            ],
+        );
+        let note: Vec<companies::Model> =
+            companies::Entity::find().from_raw_sql(stmt).all(db).await?;
+
+        Ok(note)
     }
 }
 

@@ -38,6 +38,7 @@ Handle project-level operations:
 - **AddUserToProject**: 👥 Add a user to a project.
 - **RemoveUserFromProject**: ❌ Remove a user from a project.
 - **DeleteProject**: 🗑️ Delete a project.
+- **GetAllUserCompanies****: 📜 Retrieve all companies associated with the user making the request (based on their token).
 
 ---
 

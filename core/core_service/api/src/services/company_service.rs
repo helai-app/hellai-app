@@ -4,9 +4,9 @@ use tonic::{Request, Response, Status};
 
 use crate::{
     helai_api_core_service::{
-        companies_service_server::CompaniesService, CompanyUserInfoResponse, CreateCompanyRequest,
-        CreateCompanyResponse, DeleteCompanyRequest, StatusResponse,
-        UserCompanyModificationRequest,
+        companies_service_server::CompaniesService, CompanyInfoResponse, CompanyUserInfoResponse,
+        CreateCompanyRequest, CreateCompanyResponse, DeleteCompanyRequest, GetAllCompanyRequest,
+        GetAllCompanyRespnonse, StatusResponse, UserCompanyModificationRequest,
     },
     middleware::{
         access_check::check_company_permission,
@@ -262,5 +262,39 @@ impl CompaniesService for MyServer {
             event!(target: "hellai_app_core_events", Level::DEBUG, "Permission denied: User lacks 'Owner' role to delete company");
             Err(Status::permission_denied("permission_denied"))
         }
+    }
+
+    async fn get_all_user_companies(
+        &self,
+        request: Request<GetAllCompanyRequest>,
+    ) -> Result<Response<GetAllCompanyRespnonse>, Status> {
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Received get all user companies request: {:?}", request);
+
+        // Step 1: Authenticate the user and extract their ID from the auth token in the request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Step 2: Establish a database connection
+        let conn = &self.connection;
+
+        let companies =
+            CompaniesQuery::get_all_user_companies(conn, user_id_from_token as i32).await?;
+
+        let companies_response: Vec<CompanyInfoResponse> = companies
+            .into_iter()
+            .map(|x| CompanyInfoResponse {
+                id: x.id,
+                name: x.name,
+                name_alias: x.name_alias,
+                description: x.description,
+                contact_info: x.contact_info,
+            })
+            .collect();
+
+        let response = Response::new(GetAllCompanyRespnonse {
+            companies: companies_response,
+        });
+
+        event!(target: "hellai_app_core_events", Level::DEBUG, "Get all user companies successfully. Response: {:?}", response);
+        Ok(response)
     }
 }
