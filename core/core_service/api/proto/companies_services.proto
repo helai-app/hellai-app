@@ -54,7 +54,7 @@ message DeleteCompanyRequest {
   int32 company_id = 1; // Unique identifier of the company to be deleted
 }
 
-// Reponse information about company
+// Response information about company
 message CompanyInfoResponse {
   int32 id = 1;                     // Unique identifier of company
   string name = 2;                  // Title of the projecompany
