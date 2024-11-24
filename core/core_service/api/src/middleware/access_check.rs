@@ -1,7 +1,8 @@
 use core_database::{
-    entity::{tasks, user_company},
+    entity::{notes, tasks, user_company},
     queries::{
         companies_query::CompaniesQuery,
+        notes_query::NotesQuery,
         projects_query::{ProjectQuery, UserProject},
         tasks_query::TasksQuery,
     },
@@ -51,6 +52,23 @@ pub async fn check_tasks_permission(
 
     match user_task {
         Some(task) => return Ok(task),
+        None => Err(Status::permission_denied("permission_denied")),
+    }
+}
+
+// First, verify that the note exists. Then, check access permissions based on the presence of a company ID:
+// - If the project or task is associated with a company, validate access through the company's permissions.
+// - Otherwise, ensure the user ID of the note matches the current user, allowing them to delete their own note.
+pub async fn check_note_permission(
+    conn: &DbConn,
+    user_id: i32,
+    note_id: i32,
+) -> Result<notes::Model, Status> {
+    // Retrieve the user's role in the project from the database
+    let user_note = NotesQuery::check_user_permission(conn, note_id, user_id).await?;
+
+    match user_note {
+        Some(user_note) => return Ok(user_note),
         None => Err(Status::permission_denied("permission_denied")),
     }
 }

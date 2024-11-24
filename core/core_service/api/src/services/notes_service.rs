@@ -5,11 +5,12 @@ use tonic::{Request, Response, Status};
 use crate::{
     helai_api_core_service::{
         notes_service_server::NotesService, CreateNoteRequest, CreateNoteResponse,
-        DeleteNoteRequest, NoteUserInfoResponse, StatusResponse, UserNoteModificationRequest,
+        DeleteNoteRequest, StatusResponse,
     },
     middleware::{
         access_check::{
-            check_company_permission, check_project_permission, check_tasks_permission,
+            check_company_permission, check_note_permission, check_project_permission,
+            check_tasks_permission,
         },
         interceptors,
         validators::{
@@ -142,24 +143,59 @@ impl NotesService for MyServer {
         Ok(response)
     }
 
-    async fn add_user_to_note(
-        &self,
-        request: Request<UserNoteModificationRequest>,
-    ) -> Result<Response<NoteUserInfoResponse>, Status> {
-        todo!()
-    }
-
-    async fn remove_user_from_note(
-        &self,
-        request: Request<UserNoteModificationRequest>,
-    ) -> Result<Response<StatusResponse>, Status> {
-        todo!()
-    }
-
+    /// Deletes a note after verifying the user's permissions.
+    ///
+    /// This function validates the user's permissions for the specified note before proceeding with the deletion.
+    /// It ensures only authorized users can delete the note.
+    ///
+    /// # Arguments
+    /// * `request` - A gRPC `Request` object containing the note ID to be deleted.
+    ///
+    /// # Returns
+    /// * `Result<Response<StatusResponse>, Status>` - Returns a gRPC response indicating success,
+    /// or a gRPC `Status` error if permission checks or deletion fail.
+    ///
+    /// # Errors
+    /// * Returns `Status::permission_denied` if the user lacks sufficient permissions.
+    /// * Returns `Status` for any other errors encountered during processing.
     async fn delete_note(
         &self,
         request: Request<DeleteNoteRequest>,
     ) -> Result<Response<StatusResponse>, Status> {
-        todo!()
+        // Step 1: Log the incoming request
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "Received delete note request: {:?}",
+            request
+        );
+
+        // Step 2: Authenticate the user using the auth token from the request metadata
+        let user_id_from_token = interceptors::check_auth_token(request.metadata())?;
+
+        // Step 3: Extract the inner payload from the gRPC request
+        let request = request.into_inner();
+
+        // Step 4: Establish a database connection
+        let conn = &self.connection;
+
+        // Step 5: Verify that the user has permission to delete the specified note
+        check_note_permission(conn, user_id_from_token as i32, request.note_id).await?;
+
+        // Step 6: Delete the note from the database
+        NotesQuery::delete_note(conn, request.note_id).await?;
+
+        // Step 7: Construct and return a success response
+        let response = Response::new(StatusResponse { success: true });
+
+        // Step 8: Log the success event
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "Note deleted successfully. Response: {:?}",
+            response
+        );
+
+        Ok(response)
     }
 }

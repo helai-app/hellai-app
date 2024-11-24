@@ -10,14 +10,6 @@ service NotesService {
   // Creates a new note within a specified project, company, or task
   rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse) {}
 
-  // Adds a user to a specified note with a particular role
-  rpc AddUserToNote(UserNoteModificationRequest)
-      returns (NoteUserInfoResponse) {}
-
-  // Removes a user from a specified note
-  rpc RemoveUserFromNote(UserNoteModificationRequest) returns (StatusResponse) {
-  }
-
   // Deletes a note by its unique identifier
   rpc DeleteNote(DeleteNoteRequest) returns (StatusResponse) {}
 }
