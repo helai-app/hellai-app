@@ -17,6 +17,13 @@ enum ProjectRole {
   PROJECT_ROLE_GUEST = 5;         // Guest with restricted access
 }
 
+// Enum representing the roles a user can have in a project
+enum TaskStatusType {
+  COMPLETED = 0;
+  IN_PROGRESS = 1;
+  PENDING = 2;
+}
+
 // Response message indicating the success status of an operation
 message StatusResponse {
   bool success = 1; // True if operation succeeded, false otherwise

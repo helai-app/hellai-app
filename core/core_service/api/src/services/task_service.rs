@@ -1,11 +1,15 @@
-use core_database::queries::tasks_query::TasksQuery;
+use core_database::{
+    entity::sea_orm_active_enums::TaskStatusType, queries::tasks_query::TasksQuery,
+};
 use core_debugger::tracing::{event, Level};
 use tonic::{Request, Response, Status};
 
 use crate::{
     helai_api_core_service::{
-        tasks_service_server::TasksService, CreateTaskRequest, CreateTaskResponse,
-        DeleteTaskRequest, StatusResponse, TaskUserInfoResponse, UserTaskModificationRequest,
+        tasks_service_server::TasksService, AssignedUserInfo, CreateTaskRequest,
+        CreateTaskResponse, DeleteTaskRequest, GetAllProjectTasksRequest,
+        GetAllProjectTasksResponse, StatusResponse, TaskResponse, TaskUserInfoResponse,
+        UserTaskModificationRequest,
     },
     middleware::{
         access_check::{check_project_permission, check_tasks_permission},
@@ -238,8 +242,6 @@ impl TasksService for MyServer {
             let user_task_access =
                 check_tasks_permission(conn, user_id_from_token as i32, request.task_id).await?;
 
-            println!("Permission id {}", user_task_access.1);
-
             if user_task_access.1 <= 2 {
                 // User has sufficient privileges; proceed with the removal
                 TasksQuery::remove_user_from_task(
@@ -349,5 +351,109 @@ impl TasksService for MyServer {
                 "Permission denied: insufficient privileges",
             ))
         }
+    }
+
+    /// Retrieves all tasks for a specified project that the authenticated user has access to.
+    ///
+    /// This function processes a `GetAllProjectTasksRequest`, verifies the user's authentication token,
+    /// queries the database for accessible tasks, and maps the results into a response format.
+    ///
+    /// # Arguments
+    /// * `request` - The incoming gRPC request containing the project ID.
+    ///
+    /// # Returns
+    /// * `Result<Response<GetAllProjectTasksResponse>, Status>` -
+    ///   * On success, returns a response containing a list of tasks the user has access to.
+    ///   * On failure, returns a gRPC `Status` error.
+    ///
+    /// # Errors
+    /// * Returns `Status::Unauthenticated` if the authentication token is invalid.
+    /// * Returns `Status::Internal` if the database query fails or if any other unexpected error occurs.
+    async fn get_all_project_tasks(
+        &self,
+        request: Request<GetAllProjectTasksRequest>,
+    ) -> Result<Response<GetAllProjectTasksResponse>, Status> {
+        // Log the incoming request.
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "Received get all project tasks request: {:?}",
+            request
+        );
+
+        // Step 1: Authenticate the user by verifying the auth token in the request metadata.
+        let user_id_from_token =
+            interceptors::check_auth_token(request.metadata()).map_err(|e| {
+                event!(
+                    target: "hellai_app_core_events",
+                    Level::ERROR,
+                    "Authentication failed: {:?}",
+                    e
+                );
+                Status::unauthenticated("Invalid authentication token")
+            })?;
+
+        // Extract the inner request data.
+        let request = request.into_inner();
+
+        // Step 2: Establish a database connection.
+        let conn = &self.connection;
+
+        // Step 3: Fetch tasks accessible to the user for the specified project ID.
+        let tasks_db = TasksQuery::get_all_project_tasks_by_access(
+            conn,
+            request.project_id,
+            user_id_from_token as i32,
+        )
+        .await
+        .map_err(|e| {
+            event!(
+                target: "hellai_app_core_events",
+                Level::ERROR,
+                "Database query failed: {:?}",
+                e
+            );
+            Status::internal("Failed to retrieve project tasks")
+        })?;
+
+        // Step 4: Transform the database task results into the gRPC response format.
+        let tasks_response: Vec<TaskResponse> = tasks_db
+            .into_iter()
+            .map(|task| TaskResponse {
+                task_id: task.id,
+                project_id: task.project_id,
+                assigned_to: Some(AssignedUserInfo {
+                    id: task.assigned_to_id,
+                    name: task.assigned_to_name,
+                }),
+                status: match task.status {
+                    TaskStatusType::Completed => 0,
+                    TaskStatusType::InProgress => 1,
+                    TaskStatusType::Pending => 2,
+                },
+                title: task.title,
+                description: task.description.unwrap_or_else(String::new),
+                priority: task.priority.unwrap_or_else(|| "Medium".to_string()),
+                created_at: task.created_at.to_string(),
+                due_date: task
+                    .due_date
+                    .map_or_else(String::new, |date| date.to_string()),
+            })
+            .collect();
+
+        // Step 5: Construct and return the response.
+        let response = Response::new(GetAllProjectTasksResponse {
+            tasks: tasks_response,
+        });
+
+        // Log the successful operation.
+        event!(
+            target: "hellai_app_core_events",
+            Level::DEBUG,
+            "Retrieved project tasks successfully. Response: {:?}",
+            response
+        );
+
+        Ok(response)
     }
 }

@@ -90,3 +90,9 @@ message NewUserResponse {
 message TokenResponse {
   string session_token = 1; // New session token for authenticated access
 }
+
+// Response message providing brief information about a user
+message UserShortInfoResponse {
+  int32 user_id = 1;    // Unique identifier of the user
+  string user_name = 2; // Display name or username of the user
+}

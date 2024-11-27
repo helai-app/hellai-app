@@ -1,13 +1,29 @@
 use core_error::core_errors::CoreErrors;
 use sea_orm::{
+    sqlx::types::chrono::{DateTime, Utc},
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DbBackend, DbConn, DbErr,
-    DeleteResult, EntityTrait, IntoActiveModel, QueryFilter, RuntimeErr, Set, Statement,
+    DeleteResult, EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, RuntimeErr, Set,
+    Statement,
 };
 
 use crate::entity::{
     sea_orm_active_enums::{AccessLevelType, TaskStatusType},
     tasks, user_access,
 };
+
+#[derive(Debug, FromQueryResult)]
+pub struct TaskModelFromQueryResult {
+    pub id: i32,
+    pub project_id: i32,
+    pub assigned_to_id: i32,
+    pub assigned_to_name: String,
+    pub status: TaskStatusType,
+    pub title: String,
+    pub description: Option<String>,
+    pub priority: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub due_date: Option<DateTime<Utc>>,
+}
 
 pub struct TasksQuery;
 
@@ -406,6 +422,103 @@ impl TasksQuery {
             .await?;
 
         Ok(())
+    }
+
+    /// Retrieves all tasks for a specific project that the user has access to.
+    ///
+    /// This function returns a list of tasks that a user can view or modify within a project.
+    /// It checks for three types of access:
+    /// 1. Company-wide access for roles with sufficient privileges (`role_id <= 3`).
+    /// 2. Explicit project-level access for the user.
+    /// 3. Explicit task-level access for the user.
+    ///
+    /// # Arguments
+    /// * `db` - A reference to the database connection used for querying.
+    /// * `project_id` - The ID of the project for which tasks are retrieved.
+    /// * `user_id` - The ID of the user whose access is being verified.
+    ///
+    /// # Returns
+    /// * `Result<Vec<TaskModelFromQueryResult>, CoreErrors>` -
+    ///   * A vector of `TaskModelFromQueryResult` instances if successful.
+    ///   * An error of type `CoreErrors` if the query execution fails.
+    ///
+    /// # Errors
+    /// This function may return a `CoreErrors` variant in case of:
+    /// * Database errors (e.g., connectivity issues, malformed SQL).
+    /// * Invalid input causing query execution to fail.
+    pub async fn get_all_project_tasks_by_access(
+        db: &DbConn,
+        project_id: i32,
+        user_id: i32,
+    ) -> Result<Vec<TaskModelFromQueryResult>, CoreErrors> {
+        // SQL query to fetch tasks the user has access to based on:
+        // 1. Company-wide access (`role_id <= 3` in `user_company`).
+        // 2. Explicit project-level access (`user_access.project_id` matches).
+        // 3. Explicit task-level access (`user_access.task_id` matches).
+        let sql = r#"
+        SELECT 
+            t.id AS id,
+            t.project_id AS project_id,
+            u.id AS assigned_to_id,
+            u.user_name AS assigned_to_name,
+            t.status::TEXT AS status,
+            t.title AS title,
+            t.description AS description,
+            t.priority AS priority,
+            t.created_at AS created_at,
+            t.due_date AS due_date
+        FROM 
+            tasks t
+        LEFT JOIN 
+            users u ON t.assigned_to = u.id
+        WHERE 
+            t.project_id = $1
+            AND (
+                -- Full access to the company (roles with `role_id <= 3`).
+                EXISTS (
+                    SELECT 1 
+                    FROM user_company uc 
+                    INNER JOIN projects p ON uc.company_id = p.company_id
+                    WHERE uc.user_id = $2 
+                      AND uc.role_id <= 3
+                      AND p.id = $1
+                )
+                OR 
+                -- Explicit project-level access granted to the user.
+                EXISTS (
+                    SELECT 1
+                    FROM user_access ua
+                    WHERE ua.user_id = $2
+                      AND ua.project_id = $1
+                )
+                OR
+                -- Explicit task-level access granted to the user.
+                EXISTS (
+                    SELECT 1
+                    FROM user_access ua
+                    WHERE ua.user_id = $2
+                      AND ua.task_id = t.id
+                )
+            );
+    "#;
+
+        // Prepare the SQL statement with placeholders replaced by parameters.
+        let stmt = Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            sql,
+            vec![
+                project_id.into(), // Parameter $1: Project ID
+                user_id.into(),    // Parameter $2: User ID
+            ],
+        );
+
+        // Execute the query and map the result to a vector of `TaskModelFromQueryResult`.
+        let tasks: Vec<TaskModelFromQueryResult> =
+            TaskModelFromQueryResult::find_by_statement(stmt)
+                .all(db)
+                .await?;
+
+        Ok(tasks)
     }
 }
 

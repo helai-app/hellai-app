@@ -69,10 +69,10 @@ message ProjectsResponse {
   optional string decoration_color = 5; // Color inicator for UI
 }
 
-// Request message gor get all Company projects
+// Request message for get all Company projects
 message GetAllCompanyProjectsRequest { int32 company_id = 1; }
 
-// Request message gor get all Company projects
+// Response message for get all Company projects
 message GetAllCompanyProjectsRespnonse {
   repeated ProjectsResponse projects = 1;
 }
