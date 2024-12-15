@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package helai_api_core_service;
+
+import "default_service.proto";
+
+// Service for managing company-related operations
+service CompaniesService {
+
+  // Creates a new company with specified details
+  rpc CreateCompany(CreateCompanyRequest) returns (CreateCompanyResponse) {}
+
+  // Adds a user to a specified company with a particular role
+  rpc AddUserToCompany(UserCompanyModificationRequest)
+      returns (CompanyUserInfoResponse) {}
+
+  // Removes a user from a specified company
+  rpc RemoveUserFromCompany(UserCompanyModificationRequest)
+      returns (StatusResponse) {}
+
+  // Deletes a company by its unique identifier
+  rpc DeleteCompany(DeleteCompanyRequest) returns (StatusResponse) {}
+
+  // Get all User companies by id in token
+  rpc GetAllUserCompanies(GetAllCompanyRequest)
+      returns (GetAllCompanyRespnonse) {}
+}
+
+// Request message for creating a new company
+message CreateCompanyRequest {
+  string name = 1;                  // Company name
+  optional string description = 2;  // Brief description of the company
+  optional string contact_info = 3; // Contact information for the company
+}
+
+// Response message after creating a new company
+message CreateCompanyResponse {
+  int32 company_id = 1;             // Unique identifier of the created company
+  string name = 2;                  // Company name
+  optional string description = 3;  // Brief description of the company
+  optional string contact_info = 4; // Contact information for the company
+}
+
+// Request message for modifying user-company relationships
+message UserCompanyModificationRequest {
+  int32 user_id = 1;    // Unique identifier of the user
+  int32 company_id = 2; // Unique identifier of the company
+}
+
+// Response message providing user information within a company
+message CompanyUserInfoResponse {
+  int32 user_id = 1;         // Unique identifier of the user
+  ProjectRole user_role = 2; // Role of the user in the company
+}
+
+// Request message for deleting a company
+message DeleteCompanyRequest {
+  int32 company_id = 1; // Unique identifier of the company to be deleted
+}
+
+// Response information about company
+message CompanyInfoResponse {
+  int32 id = 1;                     // Unique identifier of company
+  string name = 2;                  // Title of the projecompany
+  string name_alias = 3;            // Unique identifier of company name
+  optional string description = 4;  // Short info about company
+  optional string contact_info = 5; // Some contacts (owner email)
+}
+
+// Request message gor get all User companies by id in token
+message GetAllCompanyRequest {}
+
+// Response message gor get all User companies by id in token
+message GetAllCompanyRespnonse { repeated CompanyInfoResponse companies = 1; }

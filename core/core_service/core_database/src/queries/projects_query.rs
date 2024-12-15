@@ -2,17 +2,19 @@ use core_error::core_errors::CoreErrors;
 
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DbBackend, DbConn,
-    EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Set, Statement,
+    DeleteResult, EntityTrait, FromQueryResult, IntoActiveModel, QueryFilter, Set, Statement,
 };
 
-use crate::entity::prelude::{Projects, UserProjectRoles};
-use crate::entity::projects::{self};
-use crate::entity::user_project_roles;
+use crate::entity::sea_orm_active_enums::AccessLevelType;
+use crate::entity::{projects, user_access};
 
 /// Represents a project associated with a user, along with the user's role in that project.
 pub struct UserProject {
     pub id: i32,
-    pub name: String,
+    pub company_id: i32,
+    pub title: String,
+    pub description: Option<String>,
+    pub decoration_color: Option<String>,
     pub user_role: UserProjectRole,
 }
 
@@ -20,19 +22,20 @@ pub struct UserProject {
 pub struct UserProjectRole {
     pub id: i32,
     pub name: String,
-    pub description: Option<String>,
 }
 
 #[derive(Debug, FromQueryResult)]
 struct UserProjectQueryResult {
     // Fields from user_projects
-    user_project_id: i32,
-    project_name: String,
+    project_id: i32,
+    project_company_id: i32,
+    project_title: String,
+    project_description: Option<String>,
+    project_decoration_color: Option<String>,
 
     // Fields from project_roles
     role_id: i32,
     role_name: String,
-    role_description: Option<String>,
 }
 
 /// Provides methods for querying and manipulating projects and user roles.
@@ -59,7 +62,6 @@ impl ProjectQuery {
                 p.name AS project_name,
                 pr.id AS role_id,
                 pr.name AS role_name,
-                pr.description AS role_description
             FROM
                 user_projects up
                 INNER JOIN projects p ON up.project_id = p.id
@@ -79,12 +81,14 @@ impl ProjectQuery {
         let user_projects = query_results
             .into_iter()
             .map(|record| UserProject {
-                id: record.user_project_id,
-                name: record.project_name,
+                id: record.project_id,
+                company_id: record.project_company_id,
+                title: record.project_title,
+                description: record.project_description,
+                decoration_color: record.project_decoration_color,
                 user_role: UserProjectRole {
                     id: record.role_id,
                     name: record.role_name,
-                    description: record.role_description,
                 },
             })
             .collect();
@@ -92,36 +96,48 @@ impl ProjectQuery {
         Ok(user_projects)
     }
 
-    /// Creates a new project with the given name and assigns the creator as the owner.
+    /// Creates a new project within a specified company and optionally assigns user access.
+    ///
+    /// This function uses Common Table Expressions (CTEs) to insert a new project into the `projects` table.
+    /// If the user's role ID is 3 or higher, the user is also added to the `user_access` table with full access.
     ///
     /// # Arguments
     ///
-    /// * `db` - The database connection.
-    /// * `name` - The name of the new project.
-    /// * `user_id` - The ID of the user creating the project, who will be assigned the owner role.
+    /// * `db` - A reference to the database connection.
+    /// * `company_id` - The ID of the company to which the project belongs.
+    /// * `title` - The title of the project.
+    /// * `description` - A description of the project.
+    /// * `decoration_color` - A decoration color for the project.
+    /// * `user_id` - The ID of the user creating the project.
+    /// * `role_id` - The role ID of the user. If the role ID is 3 or higher, user access is added.
     ///
     /// # Returns
     ///
-    /// The created `projects::Model`, or an error of type `CoreErrors`.
+    /// * `Result<projects::Model, CoreErrors>` - Returns the created project model on success,
+    ///   or an error of type `CoreErrors` if the operation fails.
     pub async fn create_project(
         db: &DbConn,
-        name: String,
+        company_id: i32,
+        title: String,
+        description: String,
+        decoration_color: String,
         user_id: i32,
+        role_id: i32, // If role_id >= 3, add an entry in UserAccess
     ) -> Result<projects::Model, CoreErrors> {
-        // Define the SQL statement using Common Table Expressions (CTEs)
+        // SQL statement using Common Table Expressions (CTEs)
         let sql = r#"
         WITH new_project AS (
-            INSERT INTO projects (name)
-            VALUES ($1)
-            RETURNING id, name
+            INSERT INTO projects (company_id, title, description, decoration_color, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+            RETURNING id, company_id, title, description, decoration_color, created_at, updated_at
         ),
-        inserted_user_project_role AS (
-            INSERT INTO user_project_roles (user_id, project_id, project_role_id)
-            SELECT $2, id, 1
+        user_access AS (
+            INSERT INTO user_access (user_id, company_id, project_id, role_id, access_level, created_at)
+            SELECT $5, NULL, id, 1, 'full', CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
             FROM new_project
-            RETURNING id
+            WHERE $6 >= 3 -- Add to UserAccess only if role_id is 3 or higher
         )
-        SELECT id, name
+        SELECT id, company_id, title, description, decoration_color, created_at, updated_at
         FROM new_project;
     "#;
 
@@ -129,7 +145,14 @@ impl ProjectQuery {
         let stmt = Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             sql,
-            vec![name.into(), user_id.into()],
+            vec![
+                company_id.into(),       // $1 - Company ID
+                title.into(),            // $2 - Project title
+                description.into(),      // $3 - Project description
+                decoration_color.into(), // $4 - Decoration color
+                user_id.into(),          // $5 - User ID
+                role_id.into(),          // $6 - Role ID
+            ],
         );
 
         // Execute the SQL statement and get the result
@@ -137,124 +160,373 @@ impl ProjectQuery {
 
         // Extract the project details from the query result
         let project = if let Some(row) = project_result {
-            let id: i32 = row.try_get("", "id")?;
-            let name: String = row.try_get("", "name")?;
-
-            projects::Model { id, name }
+            projects::Model {
+                id: row.try_get("", "id")?,                             // Project ID
+                company_id: row.try_get("", "company_id")?,             // Company ID
+                title: row.try_get("", "title")?,                       // Project title
+                description: row.try_get("", "description")?, // Project description (optional)
+                decoration_color: row.try_get("", "decoration_color")?, // Decoration color (optional)
+                created_at: row.try_get("", "created_at")?,             // Creation timestamp
+                updated_at: row.try_get("", "updated_at")?,             // Update timestamp
+            }
         } else {
             return Err(CoreErrors::DatabaseServiceError(
-                "failed_create_project".to_string(),
+                "Failed to create project".to_string(),
             ));
         };
 
+        // Return the created project
         Ok(project)
     }
 
-    /// Deletes a project by its ID.
+    /// Retrieves a user's role and project details for a specific project.
+    ///
+    /// This function queries both the `user_company` and `user_access` tables to determine the user's role
+    /// and their association with the specified project. It returns the user's role and project details if found.
     ///
     /// # Arguments
     ///
-    /// * `db` - The database connection.
-    /// * `project_id` - The ID of the project to delete.
+    /// * `db` - A reference to the database connection.
+    /// * `user_id` - The ID of the user whose project access is being queried.
+    /// * `project_id` - The ID of the project for which access is being checked.
     ///
     /// # Returns
     ///
-    /// An empty `Result` on success, or an error of type `CoreErrors`.
-    pub async fn delete_project(db: &DbConn, project_id: i32) -> Result<(), CoreErrors> {
-        Projects::delete_by_id(project_id).exec(db).await?;
-        Ok(())
-    }
-
-    /// Adds a user to a project or updates their role if they are already part of the project.
-    ///
-    /// # Arguments
-    ///
-    /// * `db` - The database connection.
-    /// * `user_id` - The ID of the user.
-    /// * `project_id` - The ID of the project.
-    /// * `project_role_id` - The ID of the role to assign to the user in the project.
-    ///
-    /// # Returns
-    ///
-    /// The updated or newly created `user_project_roles::Model`, or an error of type `CoreErrors`.
-    pub async fn set_user_project_role(
+    /// * `Result<Option<UserProject>, CoreErrors>` - Returns a `UserProject` with role and project details if found,
+    ///   or `None` if no association exists. Returns `CoreErrors` if the query fails.
+    pub async fn get_user_project(
         db: &DbConn,
         user_id: i32,
         project_id: i32,
-        project_role_id: i32,
-    ) -> Result<user_project_roles::Model, CoreErrors> {
-        // Check if the user already has a role in the project
-        let existing_role = UserProjectRoles::find()
-            .filter(user_project_roles::Column::UserId.eq(user_id))
-            .filter(user_project_roles::Column::ProjectId.eq(project_id))
+    ) -> Result<Option<UserProject>, CoreErrors> {
+        // SQL query to retrieve the user's role and project details
+        let sql = r#"
+        WITH user_role AS (
+            -- Check user's role and project details from `user_company`
+            SELECT 
+                uc.role_id AS role_id,
+                r.name AS role_name,
+                p.id AS project_id,
+                p.company_id AS project_company_id,
+                p.title AS project_title,
+                p.description AS project_description,
+                p.decoration_color AS project_decoration_color
+            FROM user_company uc
+            JOIN roles r ON uc.role_id = r.id
+            JOIN projects p ON uc.company_id = p.company_id
+            WHERE uc.user_id = $1 
+              AND p.id = $2 
+              AND uc.role_id <= 2
+
+            UNION ALL
+
+            -- Check user's role and project details from `user_access`
+            SELECT 
+                ua.role_id AS role_id,
+                r.name AS role_name,
+                p.id AS project_id,
+                p.company_id AS project_company_id,
+                p.title AS project_title,
+                p.description AS project_description,
+                p.decoration_color AS project_decoration_color
+            FROM user_access ua
+            JOIN roles r ON ua.role_id = r.id
+            JOIN projects p ON ua.project_id = p.id
+            WHERE ua.user_id = $1 AND ua.project_id = $2
+        )
+        SELECT 
+            ur.project_id AS project_id,
+            ur.project_company_id AS project_company_id,
+            ur.project_title AS project_title,
+            ur.project_description AS project_description,
+            ur.project_decoration_color AS project_decoration_color,
+            ur.role_id AS role_id,
+            ur.role_name AS role_name
+        FROM user_role ur
+        LIMIT 1
+    "#;
+
+        // Step 1: Prepare the SQL statement with parameters
+        let stmt = Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            sql,
+            [user_id.into(), project_id.into()],
+        );
+
+        // Step 2: Execute the query and retrieve the result
+        let query_result = UserProjectQueryResult::find_by_statement(stmt)
             .one(db)
             .await?;
 
-        let result = match existing_role {
-            Some(role) => {
-                // Update the existing role
-                let mut active_role = role.into_active_model();
-                active_role.project_role_id = Set(project_role_id);
-                active_role.update(db).await?
-            }
-            None => {
-                // Create a new role assignment
-                let new_role = user_project_roles::ActiveModel {
-                    user_id: Set(user_id),
-                    project_id: Set(project_id),
-                    project_role_id: Set(project_role_id),
-                    ..Default::default()
-                };
-                new_role.insert(db).await?
-            }
+        // Step 3: Map the query result into the `UserProject` structure if found
+        if let Some(record) = query_result {
+            Ok(Some(UserProject {
+                id: record.project_id,                             // Project ID
+                company_id: record.project_company_id,             // Company ID
+                title: record.project_title,                       // Project title
+                description: record.project_description,           // Optional project description
+                decoration_color: record.project_decoration_color, // Optional decoration color
+                user_role: UserProjectRole {
+                    id: record.role_id,     // Role ID
+                    name: record.role_name, // Role name
+                },
+            }))
+        } else {
+            // Step 4: Return `None` if no matching association is found
+            Ok(None)
+        }
+    }
+
+    /// Adds a user to a project with a specified role and access level.
+    ///
+    /// This function checks if the user already has an entry in the `user_access` table for the specified project.
+    /// If no entry exists, it creates a new record associating the user with the project. The user is assigned
+    /// the "Manager" role (role ID 3) and limited access.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A reference to the database connection.
+    /// * `user_id` - The ID of the user to be added to the project.
+    /// * `project_id` - The ID of the project to which the user will be added.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<user_access::Model, CoreErrors>` - Returns the existing or newly created `user_access` record on success,
+    ///   or a `CoreErrors` error if the operation fails.
+    pub async fn add_user_to_project(
+        db: &DbConn,
+        user_id: i32,
+        project_id: i32,
+    ) -> Result<user_access::Model, CoreErrors> {
+        // Step 1: Check if the `user_access` entry already exists
+        if let Some(existing_access) = user_access::Entity::find()
+            .filter(user_access::Column::UserId.eq(user_id))
+            .filter(user_access::Column::ProjectId.eq(project_id))
+            .one(db)
+            .await?
+        {
+            // Return the existing record if found
+            return Ok(existing_access);
+        }
+
+        // Step 2: Create a new `user_access` record with the specified details
+        let new_access = user_access::ActiveModel {
+            user_id: Set(user_id),                       // Set the user ID
+            project_id: Set(Some(project_id)),           // Associate with the specified project
+            role_id: Set(Some(3)),                       // Assign role ID 3 (Manager)
+            access_level: Set(AccessLevelType::Limited), // Set access level to limited
+            ..Default::default()                         // Use default values for other fields
         };
 
+        // Step 3: Insert the new role assignment into the database
+        let result = new_access.insert(db).await?;
+
+        // Step 4: Return the successfully created `user_access` record
         Ok(result)
     }
 
-    /// Removes a user from a project by deleting their role assignment.
+    /// Removes a user from a specified project, optionally based on the requester's role level.
+    ///
+    /// This function checks if the user has an existing association with the project in the `user_access` table.
+    /// If the association exists and the requester's role level permits, it deletes the record. If no association
+    /// exists or the requester lacks sufficient permissions, an error is returned.
     ///
     /// # Arguments
     ///
-    /// * `db` - The database connection.
-    /// * `project_id` - The ID of the project.
-    /// * `user_id` - The ID of the user.
+    /// * `db` - A reference to the database connection.
+    /// * `user_id` - The ID of the user to be removed from the project.
+    /// * `project_id` - The ID of the project from which the user is being removed.
+    /// * `request_user_id_lvl` - The role level of the requester. If provided, limits the deletion to associations with a lower or equal role level.
     ///
     /// # Returns
     ///
-    /// An empty `Result` on success, or an error of type `CoreErrors`.
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` if the user was successfully removed,
+    ///   or an error if the user is not associated with the project or lacks permissions.
     pub async fn remove_user_from_project(
         db: &DbConn,
-        project_id: i32,
         user_id: i32,
+        project_id: i32,
+        request_user_id_lvl: Option<i32>,
     ) -> Result<(), CoreErrors> {
-        // Delete the role assignment from user_project_roles
-        let delete_result = UserProjectRoles::delete_many()
-            .filter(user_project_roles::Column::UserId.eq(user_id))
-            .filter(user_project_roles::Column::ProjectId.eq(project_id))
+        // Step 1: Check if the user has an existing association with the specified project
+        let existing_access = match request_user_id_lvl {
+            Some(level) => {
+                // Restrict deletion to associations with a role level less than or equal to the requester's level
+                user_access::Entity::find()
+                    .filter(user_access::Column::UserId.eq(user_id))
+                    .filter(user_access::Column::ProjectId.eq(project_id)) // Corrected `CompanyId` to `ProjectId`
+                    .filter(user_access::Column::RoleId.gte(level))
+                    .one(db)
+                    .await?
+            }
+            None => {
+                // Check for any association without role level constraints
+                user_access::Entity::find()
+                    .filter(user_access::Column::UserId.eq(user_id))
+                    .filter(user_access::Column::ProjectId.eq(project_id)) // Corrected `CompanyId` to `ProjectId`
+                    .one(db)
+                    .await?
+            }
+        };
+
+        // Step 2: If an association exists, delete it; otherwise, return an error
+        match existing_access {
+            Some(access) => {
+                // Convert the record to an active model for deletion
+                let active_role = access.into_active_model();
+
+                // Delete the record from the database
+                active_role.delete(db).await?;
+            }
+            None => {
+                // Return an error if no association exists for the user in the specified project
+                return Err(CoreErrors::DatabaseServiceError(
+                    "User not associated with the specified project".to_string(),
+                ));
+            }
+        };
+
+        // Step 3: Return success if the deletion was successful
+        Ok(())
+    }
+
+    /// Deletes a specified project from the database if it exists.
+    ///
+    /// This function checks if the project with the specified ID exists in the database. If found, it deletes the project record.
+    /// If the project does not exist, it returns an error indicating the absence of the specified project.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A reference to the database connection.
+    /// * `project_id` - The ID of the project to be deleted.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` if the project was successfully deleted,
+    ///   or a `CoreErrors::DatabaseServiceError` if the project does not exist or another error occurs.
+    pub async fn delete_project(db: &DbConn, project_id: i32) -> Result<(), CoreErrors> {
+        // Step 1: Attempt to find the project by its ID
+        let project = projects::Entity::find_by_id(project_id).one(db).await?;
+
+        // Step 2: If the project exists, delete it; otherwise, return an error
+        match project {
+            Some(project) => {
+                // Convert the project entity into an active model for deletion
+                let active_project = project.into_active_model();
+
+                // Attempt to delete the project record from the database
+                active_project.delete(db).await?;
+            }
+            None => {
+                // Return an error if the project does not exist
+                return Err(CoreErrors::DatabaseServiceError(format!(
+                    "Project with ID {} does not exist",
+                    project_id
+                )));
+            }
+        };
+
+        // Step 3: Return success if the deletion was successful
+        Ok(())
+    }
+
+    /// Deletes all user associations from a specified project.
+    ///
+    /// This function removes all records in the `user_access` table for the given project ID,
+    /// effectively removing all users associated with the project.
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - A reference to the database connection.
+    /// * `project_id` - The ID of the project whose user associations should be deleted.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), CoreErrors>` - Returns `Ok(())` if the associations were successfully deleted,
+    ///   or a `CoreErrors` error if the operation fails.
+    pub async fn delete_all_users_from_project(
+        db: &DbConn,
+        project_id: i32,
+    ) -> Result<(), CoreErrors> {
+        let _: DeleteResult = user_access::Entity::delete_many()
+            .filter(user_access::Column::ProjectId.eq(project_id)) // Filter by project ID
             .exec(db)
             .await?;
-
-        if delete_result.rows_affected == 0 {
-            // Optionally handle the case where no records were deleted
-            // e.g., return an error if the user was not part of the project
-        }
 
         Ok(())
     }
 
-    pub async fn get_user_role_in_project(
+    /// Retrieves all projects within a company that a user has access to.
+    ///
+    /// This function executes a SQL query to fetch projects that the user can access, either
+    /// due to full company access (`role_id <= 2` in `user_company`) or explicit assignment
+    /// in the `user_access` table for projects within the specified company.
+    ///
+    /// # Arguments
+    /// * `db` - A reference to the database connection.
+    /// * `company_id` - The ID of the company whose projects are to be retrieved.
+    /// * `user_id` - The ID of the user for whom access is being checked.
+    ///
+    /// # Returns
+    /// * `Result<Vec<projects::Model>, CoreErrors>` - Returns a list of `projects::Model` on success,
+    /// or an error if the query fails.
+    ///
+    /// # Errors
+    /// * Returns `CoreErrors` for any database operation failures.
+    pub async fn get_all_company_project_by_access(
         db: &DbConn,
-        project_id: i32,
+        company_id: i32,
         user_id: i32,
-    ) -> Result<Option<user_project_roles::Model>, CoreErrors> {
-        // Delete the role assignment from user_project_roles
-        let user_role = UserProjectRoles::find()
-            .filter(user_project_roles::Column::UserId.eq(user_id))
-            .filter(user_project_roles::Column::ProjectId.eq(project_id))
-            .one(db)
-            .await?;
+    ) -> Result<Vec<projects::Model>, CoreErrors> {
+        // SQL query to fetch all accessible projects within the specified company for the user
+        let sql = r#"
+        SELECT 
+            p.id AS id,
+            p.company_id AS company_id,
+            p.title AS title,
+            p.description AS description,
+            p.decoration_color AS decoration_color,
+            p.created_at AS created_at,
+            p.updated_at AS updated_at
+        FROM 
+            projects p
+        WHERE 
+            p.company_id = $1
+            AND (
+                -- Full access to the company (role_id <= 2 in user_company)
+                EXISTS (
+                    SELECT 1 
+                    FROM user_company uc 
+                    WHERE uc.user_id = $2 
+                      AND uc.company_id = $1
+                      AND uc.role_id <= 2
+                )
+                OR 
+                -- Explicit user access to the project
+                EXISTS (
+                    SELECT 1
+                    FROM user_access ua
+                    WHERE ua.user_id = $2
+                      AND ua.project_id = p.id
+                )
+            );
+    "#;
 
-        Ok(user_role)
+        // Step 1: Prepare the SQL statement with parameters
+        let stmt = Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            sql,
+            vec![
+                company_id.into(), // $1 - Company ID
+                user_id.into(),    // $2 - User ID
+            ],
+        );
+
+        // Step 2: Execute the query and fetch the result
+        let projects: Vec<projects::Model> =
+            projects::Entity::find().from_raw_sql(stmt).all(db).await?;
+
+        // Step 3: Return the list of projects
+        Ok(projects)
     }
 }

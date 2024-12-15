@@ -1,4 +1,5 @@
 use core_error::core_errors::CoreErrors;
+use regex::Regex;
 
 /// Validates the format of the login string.
 ///
@@ -84,11 +85,6 @@ pub fn password_format_validation(password: String) -> Result<String, CoreErrors
             // If there's a whitespace character, return an error
             return Err(CoreErrors::DataValidationError(
                 "password_format_error_no_whitespace".to_string(),
-            ));
-        } else {
-            // If there's a special character, return an error
-            return Err(CoreErrors::DataValidationError(
-                "password_format_error_invalid_character".to_string(),
             ));
         }
     }
@@ -185,12 +181,48 @@ pub fn max_symbols_validator_20(value: String) -> Result<String, CoreErrors> {
     Ok(value)
 }
 
-/// Validator that checks if the value does not contain special characters.
+/// Validator that checks if the value does not exceed 250 symbols.
+pub fn max_symbols_validator_250(value: String) -> Result<String, CoreErrors> {
+    if value.len() > 250 {
+        return Err(CoreErrors::DataValidationError(
+            "validator_max_symbols".to_string(),
+        ));
+    }
+    Ok(value)
+}
+
+/// Validator that checks if the value contains only alphanumeric characters and spaces.
 pub fn no_special_symbols_validator(value: String) -> Result<String, CoreErrors> {
-    if value.chars().any(|c| !c.is_alphanumeric()) {
+    if value.chars().any(|c| !c.is_alphanumeric() && c != ' ') {
         return Err(CoreErrors::DataValidationError(
             "validator_special_symbols".to_string(),
         ));
     }
     Ok(value)
+}
+
+// Validator that checks if the value is a valid hexadecimal color using a regular expression.
+///
+/// A valid hexadecimal color starts with a '#' followed by exactly 3 or 6 valid hexadecimal characters.
+///
+/// # Arguments
+///
+/// * `value` - A `String` representing the color.
+///
+/// # Returns
+///
+/// * `Ok(String)` if the value is a valid hex color.
+/// * `Err(CoreErrors)` if the value is not a valid hex color.
+pub fn hex_color_validator(value: String) -> Result<String, CoreErrors> {
+    // Define the regex pattern for a hex color
+    let hex_color_regex = Regex::new(r"^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$").unwrap();
+
+    // Check if the value matches the regex
+    if hex_color_regex.is_match(&value) {
+        Ok(value)
+    } else {
+        Err(CoreErrors::DataValidationError(
+            "validator_invalid_hex_color".to_string(),
+        ))
+    }
 }

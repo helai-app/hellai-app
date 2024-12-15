@@ -8,9 +8,10 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     #[sea_orm(unique)]
-    pub username: String,
+    pub login: String,
+    pub user_name: String,
     #[sea_orm(unique)]
-    pub email: Option<String>,
+    pub email: String,
     pub is_active: bool,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
@@ -18,14 +19,24 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::notes::Entity")]
+    Notes,
     #[sea_orm(has_many = "super::passwords::Entity")]
     Passwords,
-    #[sea_orm(has_many = "super::user_global_roles::Entity")]
-    UserGlobalRoles,
-    #[sea_orm(has_many = "super::user_project_roles::Entity")]
-    UserProjectRoles,
-    #[sea_orm(has_many = "super::user_projects::Entity")]
-    UserProjects,
+    #[sea_orm(has_many = "super::subtasks::Entity")]
+    Subtasks,
+    #[sea_orm(has_many = "super::tasks::Entity")]
+    Tasks,
+    #[sea_orm(has_many = "super::user_access::Entity")]
+    UserAccess,
+    #[sea_orm(has_many = "super::user_company::Entity")]
+    UserCompany,
+}
+
+impl Related<super::notes::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Notes.def()
+    }
 }
 
 impl Related<super::passwords::Entity> for Entity {
@@ -34,21 +45,27 @@ impl Related<super::passwords::Entity> for Entity {
     }
 }
 
-impl Related<super::user_global_roles::Entity> for Entity {
+impl Related<super::subtasks::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserGlobalRoles.def()
+        Relation::Subtasks.def()
     }
 }
 
-impl Related<super::user_project_roles::Entity> for Entity {
+impl Related<super::tasks::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserProjectRoles.def()
+        Relation::Tasks.def()
     }
 }
 
-impl Related<super::user_projects::Entity> for Entity {
+impl Related<super::user_access::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::UserProjects.def()
+        Relation::UserAccess.def()
+    }
+}
+
+impl Related<super::user_company::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserCompany.def()
     }
 }
 

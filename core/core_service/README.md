@@ -1,148 +1,146 @@
-# Core Service
+# Core Service 🚀
 
-The Core Service is a backend microservice designed for simple user authentication, data registration, and managing primary user information. Built with **Rust** and **Docker**, it offers robust performance and easy deployment. The service utilizes **gRPC** for efficient, high-performance communication between services.
+The **Core Service** is a backend microservice designed for seamless **user authentication**, **data registration**, and **primary information management**. It is implemented in **Rust** and supports **gRPC** communication for efficient service interaction. The service is containerized with **Docker** for streamlined deployment.
 
-## Features
+---
 
-- Secure user authentication
-- Efficient data registration
-- Management of primary user information
-- High performance with Rust
-- Containerized deployment using Docker
-- Inter-service communication via gRPC
+## ✨ Features
 
-## Services Overview
+- 🔒 Secure user authentication
+- 📝 Efficient data registration
+- 📊 Comprehensive company and project management
+- ⚡ High performance with Rust
+- 🐳 Containerized deployment using Docker
+- 🌐 Inter-service communication via gRPC
 
-The Core Service provides several key gRPC services to manage projects and users, enabling effective inter-service communication within your system.
+---
 
-### ProjectsService
+## 🛠️ gRPC Services Overview
 
-The `ProjectsService` is responsible for managing project-related tasks:
+The Core Service exposes a wide range of **gRPC APIs** for managing companies, projects, tasks, notes, and users. Here's an overview:
 
-- **CreateProject**: Creates a new project.
-- **AddUserToProject**: Adds a user to an existing project.
-- **RemoveUserFromProject**: Removes a user from a project.
-- **DeleteProject**: Deletes an existing project.
+### 🏢 **CompaniesService**
 
-These RPC methods are used to handle project lifecycle management and manage user assignments in projects.
+Manage company-level operations:
 
-### UserService
+- **CreateCompany**: 🏢 Create a new company.
+- **AddUserToCompany**: ➕ Assign a user to a company with a specific role.
+- **RemoveUserFromCompany**: ❌ Remove a user from a company.
+- **DeleteCompany**: 🗑️ Delete an existing company.
+- **GetAllUserCompanies****: 📜 Retrieve all companies associated with the user making the request (based on their token).
 
-The `UserService` handles user-related operations:
+---
 
-- **AuthenticateWithPassword**: Authenticates users using login and password.
-- **RegisterUser**: Registers a new user with login, password, and email.
-- **RefreshSessionToken**: Refreshes session tokens for active users.
+### 📂 **ProjectsService**
 
-These methods enable secure user authentication, registration, and session management.
+Handle project-level operations:
 
-## Installation
+- **CreateProject**: 🛠️ Create a new project.
+- **AddUserToProject**: 👥 Add a user to a project.
+- **RemoveUserFromProject**: ❌ Remove a user from a project.
+- **DeleteProject**: 🗑️ Delete a project.
+- **GetAllCompanyProjects****: 📜 Retrieve all projects associated with a specific company, considering the user's access permissions in the request.
 
-Follow these steps to set up and run the Core Service:
+---
 
-1. **Clone the Repository**
+### ✅ **TasksService**
 
-   ```bash
-   git clone https://github.com/yourusername/core-service.git
-   cd core-service
-   ```
+Organize and manage tasks within projects:
 
-2. **Generate New Authentication Data**
+- **CreateTask**: 📝 Create a new task.
+- **AddUserToTask**: 👥 Add a user to a task.
+- **RemoveUserFromTask**: ❌ Remove a user from a task.
+- **DeleteTask**: 🗑️ Delete a task.
 
-   Run the installation script to generate new authentication data:
+---
 
-   ```bash
-   bash install_core_service.sh
-   ```
+### 📝 **NotesService**
 
-3. **Start Docker Containers**
+Capture notes related to companies, projects, or tasks:
 
-   Use Docker Compose to start the necessary services in detached mode:
+- **CreateNote**: 🖊️ Add a new note.
+- **DeleteNote**: 🗑️ Delete an existing note.
 
-   ```bash
-   docker-compose up -d
-   ```
+---
 
-4. **Run the Application**
+### 🧑‍💻 **UserService**
 
-   Start the Rust application using Cargo:
+Manage users and their session data:
 
-   ```bash
-   cargo run
-   ```
+- **AuthenticateWithPassword**: 🔑 Authenticate users via login and password.
+- **RegisterUser**: 🛠️ Register a new user with credentials and email.
+- **RefreshSessionToken**: 🔄 Refresh session tokens.
+- **GetUserData**: 📋 Fetch user details and associated company/projects.
 
-## Configuration
+---
 
-Configuration settings can be adjusted in the `.env` file or within the `docker-compose.yml` and `Cargo.toml` files as needed. Common configuration options include:
+## 📝 Proto Details
 
-- **Database settings** (e.g., connection strings, credentials)
-- **Authentication settings** (e.g., token expiration time)
-- **Service ports** (e.g., the gRPC server port)
+The Core Service defines the following protobuf files for precise API contracts:
 
-Ensure that all required variables are properly set to allow the Core Service to communicate effectively with other parts of your system.
+1. **CompaniesService Protos**: Manage company operations and user relationships.
+2. **ProjectsService Protos**: Handle project-level CRUD operations and user assignments.
+3. **TasksService Protos**: Organize tasks and manage user relationships at the task level.
+4. **NotesService Protos**: Facilitate note-taking features linked to projects or tasks.
+5. **UserService Protos**: Support user authentication, registration, and session management.
+6. **DefaultService Protos**: Contain shared enums, messages, and response types.
 
-## First-Time Login
+Detailed proto definitions are available in the repository.
 
-To log in for the first time, use the following credentials:
+---
+
+## 🚀 Installation
+
+### 1️⃣ **Clone the Repository**
+```bash
+git clone https://github.com/yourusername/core-service.git
+cd core-service
+```
+
+### 2️⃣ **Generate Authentication Data**
+```bash
+bash install_core_service.sh
+```
+
+### 3️⃣ **Start Services**
+```bash
+docker-compose up -d
+```
+
+### 4️⃣ **Run the Application**
+```bash
+cargo run
+```
+
+---
+
+## 🔐 First-Time Login
+
+Use the following credentials for the initial setup:
 
 - **Login**: `admin`
 - **Password**: `Admin123`
 
-> **Note**: It is highly recommended to change the password after the first login to ensure security.
+> **⚠️ Note**: Change the password immediately after logging in for security.
 
-## Usage Examples
+---
 
-Below are examples of how to interact with the gRPC services.
+## 🌐 Contributing
 
-### Create a Project
+Contributions are welcome! Follow these steps:
 
-To create a new project using `ProjectsService`, send a `CreateProjectRequest` with the project name. This will create a new project and return its details.
+1. Write tests for new features.
+2. Format code using project guidelines.
+3. Update documentation as needed.
 
-```proto
-CreateProjectRequest {
-  project_name: "My First Project"
-}
-```
+Submit a pull request or open an issue on our [GitHub page](https://github.com/helai-app/hellai-app/issues).
 
-Response:
+---
 
-```proto
-CreateProjectResponse {
-  project_id: 123,
-  project_name: "My First Project"
-}
-```
+## 📞 Contact
 
-### Add User to a Project
+For support, visit the [GitHub Issues page](https://github.com/helai-app/hellai-app/issues). 
 
-To add a user to a project, use the `AddUserToProject` RPC. Send a `UserProjectModificationRequest` with the user ID and project ID.
+---
 
-```proto
-UserProjectModificationRequest {
-  user_id: 456,
-  project_id: 123
-}
-```
-
-Response:
-
-```proto
-ProjectUserInfoResponse {
-  user_id: 456,
-  user_role: PROJECT_ROLE_USER
-}
-```
-
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request for any enhancements or bug fixes.
-
-Before submitting changes, please make sure to:
-
-1. Write tests for new functionalities.
-2. Format your code using the project's formatting guidelines.
-3. Update the documentation if needed.
-
-## Contact
-
-For more information or support, feel free to contact the project maintainers or visit our [GitHub Issues page](https://github.com/helai-app/hellai-app/issues).
+### 🚀 Empower your systems with **Core Service**! 🌟

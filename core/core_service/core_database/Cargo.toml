@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 sea-orm = { workspace = true }
 
-core_error = {path = "../core_error"}
+core_error = { path = "../core_error" }
+rand = "0.8"

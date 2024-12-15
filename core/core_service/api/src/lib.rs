@@ -1,7 +1,9 @@
 use colored::Colorize;
-use helai_api_core_service::{
-    projects_service_server::ProjectsServiceServer, user_service_server::UserServiceServer,
-};
+use helai_api_core_service::companies_service_server::CompaniesServiceServer;
+use helai_api_core_service::notes_service_server::NotesServiceServer;
+use helai_api_core_service::projects_service_server::ProjectsServiceServer;
+use helai_api_core_service::tasks_service_server::TasksServiceServer;
+use helai_api_core_service::user_service_server::UserServiceServer;
 use http::Method;
 use std::{env, sync::Arc};
 
@@ -26,7 +28,7 @@ pub mod helai_api_core_service {
 }
 
 pub async fn start() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "0.0.0.0:50052".parse().unwrap();
+    let addr = "0.0.0.0:50053".parse().unwrap();
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
@@ -68,6 +70,9 @@ pub async fn start() -> Result<(), Box<dyn std::error::Error>> {
         .layer(tonic_web::GrpcWebLayer::new())
         .add_service(UserServiceServer::new(my_server.clone()))
         .add_service(ProjectsServiceServer::new(my_server.clone()))
+        .add_service(CompaniesServiceServer::new(my_server.clone()))
+        .add_service(TasksServiceServer::new(my_server.clone()))
+        .add_service(NotesServiceServer::new(my_server.clone()))
         .serve(addr)
         .await?;
 
