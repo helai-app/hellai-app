@@ -8,13 +8,10 @@ use tonic_web_wasm_client::Client;
 
 use crate::{
     app_state::AppState,
-    app_structs::{
-        project_info::{ProjectInfo, UserProjectRole},
-        user_data::UserData,
-    },
+    app_structs::{project_info::ProjectInfo, user_data::UserData},
     components::toast::{ToastFrame, ToastInfo, ToastManager},
     helai_api_core_service::{
-        user_service_client::UserServiceClient, ClearUserResponse, EmptyGetUserRequest,
+        user_service_client::UserServiceClient, GetUserDataRequest, UserCompanyProjectsInfoResponse,
     },
     utilities::{constants::API_SERVER, cookie_manager::WebClientCookieManager},
     GLOBAL_APP_STATE,
@@ -65,17 +62,11 @@ pub fn SplashPopUpElement() -> Element {
                             projects: user_data
                                 .user_projects
                                 .into_iter()
-                                .map(|project| {
-                                    let user_role = project.user_role.expect("Can't be None");
-                                    ProjectInfo {
-                                        id: project.project_id,
-                                        name: project.project_name,
-                                        role: UserProjectRole {
-                                            id: user_role.role_id,
-                                            name: user_role.name,
-                                            description: user_role.description,
-                                        },
-                                    }
+                                .map(|project| ProjectInfo {
+                                    id: project.id,
+                                    title: project.title,
+                                    description: project.description,
+                                    decoration_color: project.decoration_color,
                                 })
                                 .collect(),
                         });
@@ -120,11 +111,12 @@ pub fn SplashPopUpElement() -> Element {
     }
 }
 
-async fn try_get_user_data(token: String) -> Result<ClearUserResponse, String> {
+async fn try_get_user_data(token: String) -> Result<UserCompanyProjectsInfoResponse, String> {
     let base_url = API_SERVER.to_string(); // URL of the gRPC-web server
     let mut query_client = UserServiceClient::new(Client::new(base_url));
 
-    let mut request = tonic::Request::new(EmptyGetUserRequest {});
+    // TODO(kos): Add company id from cookie
+    let mut request = tonic::Request::new(GetUserDataRequest { company_id: None });
 
     request.metadata_mut().insert(
         "authorization",

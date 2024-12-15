@@ -6,13 +6,11 @@ use dioxus::prelude::*;
 
 use crate::{
     app_state::AppState,
-    app_structs::{
-        project_info::{ProjectInfo, UserProjectRole},
-        user_data::UserData,
-    },
+    app_structs::{project_info::ProjectInfo, user_data::UserData},
     components::toast::{ToastFrame, ToastInfo, ToastManager},
     helai_api_core_service::{
-        user_service_client::UserServiceClient, AuthenticateWithPasswordRequest, UserResponse,
+        user_service_client::UserServiceClient, AuthUserCompanyProjectsInfoResponse,
+        AuthenticateWithPasswordRequest,
     },
     utilities::{constants::API_SERVER, cookie_manager::WebClientCookieManager},
     GLOBAL_APP_STATE,
@@ -181,15 +179,11 @@ pub fn PrimaryButton() -> Element {
                                 .user_projects
                                 .into_iter()
                                 .map(|project| {
-                                    let user_role = project.user_role.expect("Can't be None");
                                     ProjectInfo {
-                                        id: project.project_id,
-                                        name: project.project_name,
-                                        role: UserProjectRole {
-                                            id: user_role.role_id,
-                                            name:user_role.name,
-                                            description: user_role.description,
-                                        },
+                                        id: project.id,
+                                        title: project.title,
+                                       description: project.description,
+                                       decoration_color: project.decoration_color,
                                     }
                                 })
                                 .collect(),
@@ -223,7 +217,10 @@ enum LogInPageState {
     Failed,
 }
 
-async fn try_auth(login: String, password: String) -> Result<UserResponse, String> {
+async fn try_auth(
+    login: String,
+    password: String,
+) -> Result<AuthUserCompanyProjectsInfoResponse, String> {
     let base_url = API_SERVER.to_string(); // URL of the gRPC-web server
     let mut query_client = UserServiceClient::new(Client::new(base_url));
     let request = tonic::Request::new(AuthenticateWithPasswordRequest {

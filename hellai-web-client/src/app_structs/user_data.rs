@@ -5,7 +5,7 @@ use super::project_info::ProjectInfo;
 #[allow(unused)]
 pub struct UserData {
     pub id: i32,
-    pub email: Option<String>,
+    pub email: String,
     pub projects: Vec<ProjectInfo>,
 }
 
@@ -15,10 +15,7 @@ impl fmt::Display for UserData {
         writeln!(f, "User ID: {}", self.id)?;
 
         // Display email, handling the Option
-        match &self.email {
-            Some(email) => writeln!(f, "Email: {}", email)?,
-            None => writeln!(f, "Email: None")?,
-        }
+        writeln!(f, "Email: {}", &self.email);
 
         // Display each project
         writeln!(f, "Projects:")?;
