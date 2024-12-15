@@ -2,4 +2,29 @@ syntax = "proto3";
 
 package helai_api_core_service;
 
-message ValidationError { string description = 1; }
+// Message representing a validation error
+message ValidationError {
+  string description = 1; // Description of the validation error
+}
+
+// Enum representing the roles a user can have in a project
+enum ProjectRole {
+  PROJECT_ROLE_OWNER = 0;         // Owner of the company
+  PROJECT_ROLE_ADMINISTRATOR = 1; // Administrator with full access
+  PROJECT_ROLE_MANAGER = 2;       // Manager with limited administrative rights
+  PROJECT_ROLE_USER = 3;          // Regular user with standard access
+  PROJECT_ROLE_SUPPORT = 4;       // Support staff role
+  PROJECT_ROLE_GUEST = 5;         // Guest with restricted access
+}
+
+// Enum representing the roles a user can have in a project
+enum TaskStatusType {
+  COMPLETED = 0;
+  IN_PROGRESS = 1;
+  PENDING = 2;
+}
+
+// Response message indicating the success status of an operation
+message StatusResponse {
+  bool success = 1; // True if operation succeeded, false otherwise
+}
