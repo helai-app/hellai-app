@@ -8,12 +8,12 @@ edition = "2021"
 
 [dependencies]
 
-dioxus = { version = "0.5", features = ["web", "router"] }
+dioxus = { version = "0.6", features = ["web", "router"] }
 
 # Debug
-dioxus-logger = "0.5.1"
-manganis = "0.2.2"
-web-sys = { version = "0.3.72", features = ["HtmlDocument"] }
+dioxus-logger = "0.6.0"
+manganis = "0.6.0"
+web-sys = { version = "0.3.76", features = ["HtmlDocument"] }
 
 prost = "0.13"
 tonic = { version = "0.12", default-features = false, features = [
@@ -26,8 +26,8 @@ uuid = { version = "1.11.0", features = [
 ] }
 
 tonic-web-wasm-client = "0.6"
-chrono = "0.4.38"
-tokio = "1.41.0"
+chrono = "0.4.39"
+tokio = "1.42.0"
 async-std = "1.13.0"
 gloo-timers = { version = "0.3.0", features = ["futures"] }
 getrandom = { version = "0.2", features = ["js"] }          # for uuid webasambly
@@ -36,3 +36,15 @@ getrandom = { version = "0.2", features = ["js"] }          # for uuid webasambl
 tonic-build = { version = "0.12", default-features = false, features = [
     "prost",
 ] }
+
+[profile]
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"
